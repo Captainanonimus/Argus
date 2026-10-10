@@ -18,3 +18,63 @@ body {
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Marketing surface. Values are the parchment end; the landing page drives
+   them toward ink with scroll-linked motion values. */
+:root {
+  --m-bg: #fbf7f1;
+  --m-fg: #1a1614;
+  --m-muted: #6b625c;
+  --m-rule: #e6ddd1;
+  --m-surface: #f4eee5;
+  --m-gradient: linear-gradient(100deg, #ff6b4a 0%, #e8407e 52%, #8b5cf6 100%);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+body:has([data-surface="marketing"]) {
+  background-color: #fbf7f1;
+  color: #1a1614;
+  color-scheme: light;
+}
+
+@layer components {
+  .btn-primary {
+    @apply relative inline-flex min-h-[44px] items-center rounded px-5 font-sans text-base font-medium;
+    background-color: var(--m-fg);
+    color: var(--m-bg);
+    transition: transform 160ms var(--ease-out);
+  }
+  .btn-primary::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: -6px;
+    height: 2px;
+    background: var(--m-gradient);
+    opacity: 0;
+    transition: opacity 200ms var(--ease-out);
+  }
+  .btn-primary:hover::after,
+  .btn-primary:focus-visible::after {
+    opacity: 1;
+  }
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--m-fg);
+    outline-offset: 2px;
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .link-secondary {
+    @apply font-sans text-base text-m-fg underline decoration-1 underline-offset-[3px];
+  }
+  .link-secondary:hover {
+    @apply decoration-2;
+  }
+  .link-secondary:focus-visible {
+    outline: 2px solid var(--m-fg);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+}

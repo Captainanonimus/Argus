@@ -15,6 +15,18 @@ const config: Config = {
         bid: "#2FBF71",
         ask: "#E5484D",
         alert: "#3DDBD9",
+        seam: "#232833",
+        dim: "#8A93A3",
+        chart: "#FFA028",
+        // Marketing tokens resolve through CSS variables so the landing page
+        // can interpolate them from parchment to ink on scroll.
+        m: {
+          bg: "var(--m-bg)",
+          fg: "var(--m-fg)",
+          muted: "var(--m-muted)",
+          rule: "var(--m-rule)",
+          surface: "var(--m-surface)",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],
