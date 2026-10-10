@@ -7,3 +7,31 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  symbol    String
+  accountId String
+  side      String
+  price     Float
+  size      Int
+  eventType String
+  createdAt DateTime @default(now())
+  alerts    Alert[]
+
+  @@index([symbol, createdAt])
+}
+
+model Alert {
+  id           String     @id @default(cuid())
+  orderEventId String
+  orderEvent   OrderEvent @relation(fields: [orderEventId], references: [id], onDelete: Cascade)
+  alertType    String
+  verdict      String
+  metricValue  Float
+  reason       String
+  createdAt    DateTime   @default(now())
+
+  @@index([orderEventId])
+  @@index([createdAt])
+}
