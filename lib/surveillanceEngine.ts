@@ -155,6 +155,9 @@ function imbalanceZScore(rows: OrderEvent[], anchor: number): number | null {
 
 // --- Entry point -----------------------------------------------------------
 
+// Caps each window read so a very busy symbol cannot load unbounded rows.
+const MAX_WINDOW_ROWS = 20_000;
+
 export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult> {
   try {
     const anchor = event.createdAt.getTime();
@@ -165,16 +168,21 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
           symbol: event.symbol,
           createdAt: { gte: new Date(anchor - WINDOW_MS), lte: until },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
+        take: MAX_WINDOW_ROWS,
       }),
       prisma.orderEvent.findMany({
         where: {
           symbol: event.symbol,
           createdAt: { gte: new Date(anchor - IMBALANCE_LOOKBACK_MS), lte: until },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
+        take: MAX_WINDOW_ROWS,
       }),
     ]);
+    // Newest rows are kept when a window is capped; rules read oldest first.
+    window.reverse();
+    lookback.reverse();
 
     const alerts: PendingAlert[] = [];
     let clearReason = "No surveillance rule fired.";

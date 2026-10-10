@@ -23,11 +23,17 @@ export function serverError(route: string, err: unknown) {
   return jsonError(500, "Internal error - the request could not be completed.");
 }
 
+const MAX_BODY_BYTES = 1_000_000;
+
 export async function readJsonBody(
   req: Request,
 ): Promise<{ ok: true; body: unknown } | { ok: false; res: NextResponse }> {
+  const tooLarge = () => ({ ok: false as const, res: jsonError(413, "Request body is too large.") });
+  if (Number(req.headers.get("content-length")) > MAX_BODY_BYTES) return tooLarge();
   try {
-    return { ok: true, body: await req.json() };
+    const text = await req.text();
+    if (text.length > MAX_BODY_BYTES) return tooLarge();
+    return { ok: true, body: JSON.parse(text) };
   } catch {
     return { ok: false, res: jsonError(400, "Request body must be valid JSON.") };
   }

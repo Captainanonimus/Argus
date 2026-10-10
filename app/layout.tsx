@@ -24,7 +24,9 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Argus",
-  description: "Argus",
+  description:
+    "Argus market surveillance: real-time detection of spoofing, quote stuffing and order-book imbalance, with case triage and CSV export.",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({

@@ -7,7 +7,7 @@ import type { AlertType, Verdict } from "@/lib/eventTypes";
 import { ApiError, errorMessage, fetchJson, isAbortError } from "@/lib/clientApi";
 import { CSV_COLUMNS, SAMPLE_CSV, validateCsv, type ParseResult } from "@/lib/csvImport";
 import { alertTypeLabel, fmtInt } from "@/lib/format";
-import { Button, ErrorState, Label, Panel, PageHeader, buttonClass } from "@/components/app/ui";
+import { Button, ErrorState, Label, Panel, PageHeader, buttonClass, textareaClass } from "@/components/app/ui";
 
 const BATCH = 200;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -148,19 +148,19 @@ export function Importer() {
 
   return (
     <div>
-      <PageHeader title="Import order events">
+      <PageHeader title="Import order events" description="Load a CSV of your own order flow. Every row is validated in the browser first, then sent through the surveillance engine in batches.">
         <Button size="sm" onClick={downloadSample}>
           <DownloadSimple size={14} aria-hidden="true" />
           Download sample CSV
         </Button>
       </PageHeader>
 
-      <div className="grid gap-px bg-seam lg:grid-cols-12">
+      <div className="stagger grid gap-4 lg:grid-cols-12">
         <Panel n={1} title="Columns" meta="first row must be a header" className="lg:col-span-5" bodyClassName="overflow-x-auto">
           <table className="w-full text-[12px]">
             <caption className="sr-only">CSV columns</caption>
             <thead>
-              <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+              <tr className="border-b border-seam text-[11px] text-dim">
                 <th scope="col" className="px-2 py-1 text-left font-medium">Column</th>
                 <th scope="col" className="px-2 py-1 text-left font-medium">Required</th>
                 <th scope="col" className="px-2 py-1 text-left font-medium">Format</th>
@@ -182,9 +182,9 @@ export function Importer() {
           </p>
         </Panel>
 
-        <Panel n={2} title="Your data" className="lg:col-span-7" bodyClassName="space-y-3 p-3">
+        <Panel n={2} title="Your data" className="lg:col-span-7" bodyClassName="space-y-3 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <label className={`${buttonClass("secondary", "md")} cursor-pointer focus-within:outline focus-within:outline-1 focus-within:outline-alert`}>
+            <label className={`${buttonClass("secondary", "md")} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-text`}>
               <FileArrowUp size={14} aria-hidden="true" />
               Choose a CSV file
               <input
@@ -215,7 +215,7 @@ export function Importer() {
               rows={10}
               spellCheck={false}
               placeholder={"symbol,accountId,side,eventType,price,size,createdAt\nSIMCSV,MM-01,BUY,place,100.24,300,"}
-              className="w-full resize-y rounded-[2px] border border-seam bg-ink p-2 font-mono text-[12px] leading-4 text-text placeholder:text-dim/60"
+              className={`${textareaClass} font-mono text-[12px] leading-4`}
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -240,7 +240,7 @@ export function Importer() {
         </Panel>
 
         {parsed && (
-          <Panel n={3} title="Validation" className="lg:col-span-5" bodyClassName="p-3">
+          <Panel n={3} title="Validation" className="lg:col-span-5" bodyClassName="p-4">
             {parsed.headerError ? (
               <ErrorState compact message={parsed.headerError} />
             ) : (
@@ -268,7 +268,7 @@ export function Importer() {
         )}
 
         {progress && (
-          <Panel n={4} title="Results" className={parsed ? "lg:col-span-7" : "lg:col-span-12"} bodyClassName="space-y-3 p-3">
+          <Panel n={4} title="Results" className={parsed ? "lg:col-span-7" : "lg:col-span-12"} bodyClassName="space-y-3 p-4">
             <div
               role="progressbar"
               aria-label="Rows sent"
@@ -283,7 +283,7 @@ export function Importer() {
               {fmtInt(progress.sent)}/{fmtInt(progress.total)} sent.{" "}
               {progress.state === "running" ? "Importing." : progress.state === "stopped" ? "Stopped." : progress.state === "done" ? "Done." : "Failed."}
             </p>
-            <dl className="grid grid-cols-2 gap-px bg-seam text-center sm:grid-cols-5">
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[2px] border border-seam bg-seam text-center sm:grid-cols-5">
               {[
                 ["Saved", progress.processed],
                 ["Clear", progress.counts.CLEAR],
@@ -292,14 +292,14 @@ export function Importer() {
                 ["Failed", progress.failed],
               ].map(([k, v]) => (
                 <div key={k} className="bg-panel py-1.5">
-                  <dt className="font-condensed text-[11px] text-dim">{k}</dt>
+                  <dt className="text-[11px] text-dim">{k}</dt>
                   <dd className={`num text-[16px] ${k === "Flag" && Number(v) > 0 ? "text-alert" : ""}`}>{fmtInt(Number(v))}</dd>
                 </div>
               ))}
             </dl>
             {Object.keys(progress.fired).length > 0 && (
               <p className="text-[13px]">
-                <span className="font-condensed text-dim">Rules fired: </span>
+                <span className="text-dim">Rules fired: </span>
                 <span className="text-alert">
                   {Object.entries(progress.fired)
                     .map(([t, n]) => `${alertTypeLabel(t)} (${fmtInt(n)} events)`)

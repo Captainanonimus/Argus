@@ -6,6 +6,42 @@
   color-scheme: dark;
 }
 
+/* Semantic colour tokens as RGB channels (see tailwind.config.ts).
+   Defaults are the ink terminal values the landing page's workspace uses. */
+:root,
+[data-surface="terminal"] {
+  --c-ink: 10 12 16;
+  --c-panel: 18 21 28;
+  --c-panelhi: 25 29 38;
+  --c-text: 215 220 229;
+  --c-dim: 138 147 163;
+  --c-seam: 35 40 51;
+  --c-edge: 74 82 98;
+  --c-bid: 47 191 113;
+  --c-ask: 229 72 77;
+  --c-alert: 61 219 217;
+}
+
+/* In-app pages: the landing page's parchment palette. Bid/ask/alert switch to
+   darker variants that keep 4.5:1 on parchment; the alert hue comes from the
+   magenta end of the brand gradient. */
+[data-surface="app"] {
+  --c-ink: 251 247 241; /* parchment #FBF7F1 */
+  --c-panel: 244 238 229; /* surface #F4EEE5 */
+  --c-panelhi: 237 229 217; /* hover #EDE5D9 */
+  --c-text: 26 22 20; /* charcoal #1A1614 */
+  --c-dim: 92 83 78; /* #5C534E, 6:1 on hover */
+  --c-seam: 230 221 209; /* rule #E6DDD1 */
+  --c-edge: 140 128 112; /* #8C8070, 3:1 control borders */
+  --c-bid: 23 105 60; /* #17693C */
+  --c-ask: 168 36 28; /* #A8241C */
+  --c-alert: 156 42 87; /* #9C2A57 */
+  color-scheme: light;
+}
+[data-surface="terminal"] {
+  color-scheme: dark;
+}
+
 body {
   @apply bg-ink text-text font-sans antialiased;
 }
@@ -29,6 +65,12 @@ body {
   --m-surface: #f4eee5;
   --m-gradient: linear-gradient(100deg, #ff6b4a 0%, #e8407e 52%, #8b5cf6 100%);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+body:has([data-surface="app"]) {
+  background-color: #fbf7f1;
+  color: #1a1614;
+  color-scheme: light;
 }
 
 body:has([data-surface="marketing"]) {
@@ -79,14 +121,89 @@ body:has([data-surface="marketing"]) {
   }
 }
 
-/* Terminal surface (app routes). Focus ring reuses alert cyan. */
-[data-surface="terminal"] :focus-visible {
+/* In-app focus: the landing page's 2px charcoal ring. Dark market panels
+   inside the app keep the cyan terminal ring. */
+[data-surface="app"] :focus-visible {
+  outline: 2px solid #1a1614;
+  outline-offset: 2px;
+}
+[data-surface="app"] [data-surface="terminal"] :focus-visible {
   outline: 1px solid #3ddbd9;
   outline-offset: 1px;
 }
-[data-surface="terminal"] .num {
+[data-surface="app"] .num {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* In-app primary button: the landing .btn-primary at app sizes, with the
+   same gradient underline on hover/focus and the same press scale. */
+@layer components {
+  .btn-app-primary {
+    position: relative;
+    background-color: #1a1614;
+    color: #fbf7f1;
+    transition: transform 160ms var(--ease-out);
+  }
+  .btn-app-primary::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: -5px;
+    height: 2px;
+    background: var(--m-gradient);
+    opacity: 0;
+    transition: opacity 200ms var(--ease-out);
+  }
+  .btn-app-primary:hover::after,
+  .btn-app-primary:focus-visible::after {
+    opacity: 1;
+  }
+  .btn-app-primary:disabled::after {
+    opacity: 0;
+  }
+  .btn-app-primary:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  [data-surface="terminal"] .btn-app-primary {
+    background-color: #d7dce5;
+    color: #0a0c10;
+  }
+}
+
+/* Page entry: content fades and rises 10px, cards stagger 40ms apart.
+   `backwards` fill leaves no transform behind once it finishes, so sticky
+   and fixed descendants behave normally. Mount-only: live data never animates. */
+@keyframes argus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-enter {
+  animation: argus-rise 320ms var(--ease-out) backwards;
+}
+.stagger > * {
+  animation: argus-rise 320ms var(--ease-out) backwards;
+}
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 240ms; }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .stagger > * {
+    animation: none;
+  }
+  .btn-app-primary:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* 400ms tint on rows that just arrived; the tint is skipped under reduced motion. */
@@ -112,7 +229,7 @@ body:has([data-surface="marketing"]) {
 /* Print: case reports print as black on white without the shell. */
 @media print {
   [data-print-hide] { display: none !important; }
-  body, [data-surface="terminal"] {
+  body, [data-surface="app"], [data-surface="terminal"] {
     background: #fff !important;
     color: #000 !important;
   }

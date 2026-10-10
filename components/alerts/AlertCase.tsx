@@ -25,8 +25,10 @@ import {
   Panel,
   SideTag,
   StatusTag,
+  PageHeader,
   VerdictBadge,
   buttonClass,
+  textareaClass,
 } from "@/components/app/ui";
 
 const NOTE_MAX = 2000;
@@ -50,7 +52,8 @@ export function AlertCase({ id }: { id: string }) {
   if (loading && !data) return <LoadingState label="Loading case" rows={12} />;
   if (notFound) {
     return (
-      <div className="p-3">
+      <div>
+        <PageHeader eyebrow="Case" title="Case not found" />
         <Panel title="Case not found">
           <EmptyState
             title="This alert does not exist."
@@ -64,7 +67,8 @@ export function AlertCase({ id }: { id: string }) {
   }
   if (error || !data) {
     return (
-      <div className="p-3">
+      <div>
+        <PageHeader eyebrow="Case" title="Case unavailable" />
         <ErrorState message={`Could not load this case. ${error ?? ""}`} onRetry={reload} />
       </div>
     );
@@ -81,7 +85,7 @@ function CaseView({ data, onUpdate }: { data: AlertCaseResponse; onUpdate: (a: A
 
   return (
     <article data-print-surface aria-labelledby="case-title">
-      <header className="border-b border-seam bg-ink px-3 py-3 sm:px-4">
+      <header className="pb-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2" data-print-hide>
           <Link href="/alerts" className={buttonClass("ghost", "sm")}>
             <ArrowLeft size={14} aria-hidden="true" />
@@ -98,14 +102,14 @@ function CaseView({ data, onUpdate }: { data: AlertCaseResponse; onUpdate: (a: A
             </Link>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 id="case-title" className="font-condensed text-[20px] font-semibold leading-6">
+        <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 id="case-title" className="font-display text-[clamp(1.75rem,1.4rem+1.4vw,2.5rem)] font-medium leading-[1.12] tracking-[-0.02em] [text-wrap:balance]">
             {title}
           </h1>
           <VerdictBadge verdict={alert.verdict} />
           <StatusTag status={alert.status} />
         </div>
-        <dl className="num mt-1 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-dim">
+        <dl className="num mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-dim">
           <div className="flex gap-1">
             <dt>Raised</dt>
             <dd className="text-text">{fmtDateTime(alert.createdAt)}</dd>
@@ -121,14 +125,14 @@ function CaseView({ data, onUpdate }: { data: AlertCaseResponse; onUpdate: (a: A
         </dl>
       </header>
 
-      <div className="grid gap-px bg-seam lg:grid-cols-12">
-        <Panel n={1} title="Verdict and reason" meta={rule ? `${rule.code} ${rule.name}` : undefined} className="lg:col-span-7" bodyClassName="space-y-3 p-3">
+      <div className="stagger grid gap-4 lg:grid-cols-12">
+        <Panel n={1} title="Verdict and reason" meta={rule ? `${rule.code} ${rule.name}` : undefined} className="lg:col-span-7" bodyClassName="space-y-3 p-4">
           <div>
-            <p className="font-condensed text-[11px] font-medium text-dim">Engine reason</p>
+            <p className="text-xs font-medium text-dim">Engine reason</p>
             <p className="mt-0.5 text-[13px] leading-[18px]">{alert.reason}</p>
           </div>
           <div>
-            <p className="font-condensed text-[11px] font-medium text-dim">What the numbers mean</p>
+            <p className="text-xs font-medium text-dim">What the numbers mean</p>
             <p className="mt-0.5 max-w-[70ch] text-[13px] leading-[18px]">
               {explainMetric(alert.alertType, alert.metricValue, event.symbol)}
             </p>
@@ -142,27 +146,27 @@ function CaseView({ data, onUpdate }: { data: AlertCaseResponse; onUpdate: (a: A
           </p>
         </Panel>
 
-        <Panel n={2} title="Triggering event" className="lg:col-span-5" bodyClassName="p-3">
+        <Panel n={2} title="Triggering event" className="lg:col-span-5" bodyClassName="p-4">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[13px]">
-            <dt className="font-condensed text-[12px] text-dim">Time</dt>
+            <dt className="text-[12px] text-dim">Time</dt>
             <dd className="num">{fmtDateTime(event.createdAt)}.{fmtTimeMs(event.createdAt).slice(-3)}</dd>
-            <dt className="font-condensed text-[12px] text-dim">Symbol</dt>
+            <dt className="text-[12px] text-dim">Symbol</dt>
             <dd className="num">
               <Link href={`/dashboard?symbol=${encodeURIComponent(event.symbol)}`} className="underline-offset-2 hover:underline">
                 {event.symbol}
               </Link>
             </dd>
-            <dt className="font-condensed text-[12px] text-dim">Event</dt>
+            <dt className="text-[12px] text-dim">Event</dt>
             <dd>{event.eventType}</dd>
-            <dt className="font-condensed text-[12px] text-dim">Side</dt>
+            <dt className="text-[12px] text-dim">Side</dt>
             <dd><SideTag side={event.side} /></dd>
-            <dt className="font-condensed text-[12px] text-dim">Price</dt>
+            <dt className="text-[12px] text-dim">Price</dt>
             <dd className="num">{fmtPrice(event.price)}</dd>
-            <dt className="font-condensed text-[12px] text-dim">Size</dt>
+            <dt className="text-[12px] text-dim">Size</dt>
             <dd className="num">{fmtInt(event.size)}</dd>
-            <dt className="font-condensed text-[12px] text-dim">Account</dt>
+            <dt className="text-[12px] text-dim">Account</dt>
             <dd className="num">{event.accountId}</dd>
-            <dt className="font-condensed text-[12px] text-dim">Event id</dt>
+            <dt className="text-[12px] text-dim">Event id</dt>
             <dd className="num break-all text-[12px] text-dim">{event.id}</dd>
           </dl>
         </Panel>
@@ -172,6 +176,7 @@ function CaseView({ data, onUpdate }: { data: AlertCaseResponse; onUpdate: (a: A
 
         <Panel
           n={5}
+          tone="terminal"
           title="Event timeline"
           meta={`${event.symbol}, ${data.window.beforeMs / 1000}s before to ${data.window.afterMs / 1000}s after`}
           className="lg:col-span-12"
@@ -214,12 +219,12 @@ function MetricMeter({ type, value }: { type: string; value: number }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   return (
     <figure className="pt-1">
-      <figcaption className="flex justify-between font-condensed text-[11px] text-dim">
+      <figcaption className="flex justify-between text-[11px] text-dim">
         <span>{label}</span>
         <span className="num text-text">{fmtMetric(type, value)}</span>
       </figcaption>
       <div className="relative mt-5 h-2 rounded-[2px] bg-panelhi" role="img" aria-label={`${label} ${fmtMetric(type, value)}; ${lines.map((l) => l.label).join(", ")}`}>
-        <div className="absolute inset-y-0 left-0 rounded-[2px] bg-alert/70" style={{ width: pct(value) }} />
+        <div className="absolute inset-y-0 left-0 rounded-[2px]" style={{ width: pct(value), background: "var(--m-gradient)" }} />
         {lines.map((l) => (
           <div key={l.label} className="absolute -top-4 bottom-0" style={{ left: pct(l.at) }}>
             <span className="num absolute -top-0.5 -translate-x-1/2 whitespace-nowrap text-[10px] text-dim">{l.label}</span>
@@ -256,8 +261,8 @@ function Workflow({ alert, onUpdate }: { alert: ApiAlert; onUpdate: (a: ApiAlert
   };
 
   return (
-    <Panel n={3} title="Status" className="lg:col-span-5" bodyClassName="p-3">
-      <ol className="flex flex-wrap items-center gap-1 font-condensed text-[12px]" aria-label="Case workflow">
+    <Panel n={3} title="Status" className="lg:col-span-5" bodyClassName="p-4">
+      <ol className="flex flex-wrap items-center gap-1 text-[12px]" aria-label="Case workflow">
         {steps.map((s, i) => (
           <li key={s} className="flex items-center gap-1">
             <span
@@ -319,7 +324,7 @@ function Notes({ alert, onUpdate }: { alert: ApiAlert; onUpdate: (a: ApiAlert) =
   };
 
   return (
-    <Panel n={4} title="Analyst notes" className="lg:col-span-7" bodyClassName="p-3">
+    <Panel n={4} title="Analyst notes" className="lg:col-span-7" bodyClassName="p-4">
       <label htmlFor="case-note" className="sr-only">Analyst notes</label>
       <textarea
         id="case-note"
@@ -334,7 +339,7 @@ function Notes({ alert, onUpdate }: { alert: ApiAlert; onUpdate: (a: ApiAlert) =
         }}
         rows={5}
         placeholder="What you checked, who you spoke to, and why you escalated or dismissed."
-        className="w-full resize-y rounded-[2px] border border-seam bg-ink p-2 text-[13px] leading-[18px] text-text placeholder:text-dim/70 print:border-0 print:p-0"
+        className={`${textareaClass} print:border-0 print:p-0`}
       />
       <div className="mt-2 flex flex-wrap items-center gap-3" data-print-hide>
         <Button variant="primary" size="sm" onClick={save} disabled={!dirty || state === "saving"}>
@@ -375,7 +380,7 @@ function Timeline({ data }: { data: AlertCaseResponse }) {
       <table className="w-full min-w-[720px] text-[12px]">
         <caption className="sr-only">Order events around the trigger, oldest first</caption>
         <thead>
-          <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+          <tr className="border-b border-seam text-[11px] text-dim">
             <th scope="col" className="px-2 py-1 text-right font-medium">Offset</th>
             <th scope="col" className="px-2 py-1 text-left font-medium">Time</th>
             <th scope="col" className="px-2 py-1 text-left font-medium">Event</th>
@@ -399,7 +404,7 @@ function Timeline({ data }: { data: AlertCaseResponse }) {
                 <td className="num whitespace-nowrap px-2 py-0.5 text-[11px] text-dim">{fmtTimeMs(e.createdAt)}</td>
                 <td className="px-2 py-0.5">
                   {e.eventType}
-                  {trigger && <span className="ml-2 rounded-[2px] bg-alert px-1 font-condensed text-[11px] font-semibold text-ink">Trigger</span>}
+                  {trigger && <span className="ml-2 rounded-[2px] bg-alert px-1 text-[11px] font-semibold text-ink">Trigger</span>}
                 </td>
                 <td className="px-2 py-0.5"><SideTag side={e.side} /></td>
                 <td className="num px-2 py-0.5 text-right">{fmtPrice(e.price)}</td>
@@ -408,9 +413,9 @@ function Timeline({ data }: { data: AlertCaseResponse }) {
                 <td className="px-2 py-0.5">
                   {e.alerts.map((a) =>
                     a.id === alert.id ? (
-                      <span key={a.id} className="font-condensed text-[12px] text-alert">This alert</span>
+                      <span key={a.id} className="text-[12px] text-alert">This alert</span>
                     ) : (
-                      <Link key={a.id} href={`/alerts/${a.id}`} className="mr-2 font-condensed text-[12px] text-alert underline-offset-2 hover:underline">
+                      <Link key={a.id} href={`/alerts/${a.id}`} className="mr-2 text-[12px] text-alert underline-offset-2 hover:underline">
                         {alertTypeLabel(a.alertType)} {a.verdict}
                       </Link>
                     ),

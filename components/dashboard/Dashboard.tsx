@@ -18,15 +18,19 @@ import { alertTypeLabel, fmtInt, fmtMetric, fmtPrice, fmtRelative, fmtSigned, fm
 import { useVisiblePoll } from "@/components/app/hooks";
 import {
   Button,
+  Card,
   EmptyState,
   ErrorState,
+  IconButton,
   Kpi,
   LoadingState,
+  PageHeader,
   Panel,
   SideTag,
   StatusTag,
   VerdictBadge,
-  inputClass,
+  buttonClass,
+  selectClass,
 } from "@/components/app/ui";
 import { normalizeTicker } from "@/components/app/ticker";
 import { PriceChart } from "./PriceChart";
@@ -125,7 +129,8 @@ export function Dashboard() {
 
   if (symbolsError && !symbols) {
     return (
-      <div className="p-3">
+      <div>
+        <PageHeader title="Dashboard" />
         <ErrorState message={`Could not load symbols. ${symbolsError}`} onRetry={() => loadSymbols()} />
       </div>
     );
@@ -133,13 +138,14 @@ export function Dashboard() {
   if (!symbols) return <LoadingState label="Loading symbols" rows={10} />;
   if (!symbol) {
     return (
-      <div className="p-3">
+      <div>
+        <PageHeader title="Dashboard" description="The live terminal for one symbol: price, depth, trades and the alerts raised on it." />
         <Panel title="No market data yet" n={0}>
           <EmptyState
             title="There is no order flow to watch."
             body="Run a scenario in the simulator to stream events through the surveillance engine, or import a CSV of your own order events."
             secondary={
-              <Link href="/import" className="text-[13px] text-text underline underline-offset-2">
+              <Link href="/import" className={buttonClass("ghost", "sm")}>
                 Import a CSV
               </Link>
             }
@@ -153,7 +159,7 @@ export function Dashboard() {
   const loadingLive = !live.chart && !liveError;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
@@ -170,20 +176,22 @@ export function Dashboard() {
         <ErrorState compact message={`Live update failed: ${liveError} Retrying every 1.5s.`} onRetry={() => setPaused(false)} />
       )}
       {!known && !loadingLive && (
-        <div className="border-b border-seam bg-panel">
+        <Card>
           <EmptyState
             title={`${symbol} has no events yet.`}
             body="Pick another symbol above, or send order flow for this one from the simulator."
             actionHref={`/simulator?symbol=${encodeURIComponent(symbol)}`}
           />
-        </div>
+        </Card>
       )}
 
       <KpiStrip live={live} />
 
-      <div className="grid gap-px bg-seam lg:grid-cols-12">
+      {/* Market data stays on dark terminal panels, inset in the light page. */}
+      <div className="stagger grid gap-4 lg:grid-cols-12">
         <Panel
           n={1}
+          tone="terminal"
           title="Price"
           meta={`${symbol}, last 5 min`}
           className="h-[360px] sm:h-[440px] lg:col-span-8"
@@ -222,22 +230,23 @@ export function Dashboard() {
           )}
         </Panel>
 
-        <Panel n={2} title="Depth" meta="from resting orders, 5 min" className="lg:col-span-4 lg:h-[440px]" bodyClassName="overflow-auto">
+        <Panel n={2} tone="terminal" title="Depth" meta="from resting orders, 5 min" className="lg:col-span-4 lg:h-[440px]" bodyClassName="overflow-auto">
           {loadingLive ? <LoadingState label="Loading depth" /> : <DepthLadder stats={live.stats} />}
         </Panel>
 
-        <Panel n={3} title="Time and sales" className="h-[360px] lg:col-span-5" bodyClassName="overflow-hidden">
+        <Panel n={3} tone="terminal" title="Time and sales" className="h-[360px] lg:col-span-5" bodyClassName="overflow-hidden">
           {loadingLive ? <LoadingState label="Loading trades" /> : <TimeAndSales feed={live.feed} />}
         </Panel>
 
         <Panel
           n={4}
+          tone="terminal"
           title="Alert blotter"
           meta={live.stats ? `${fmtInt(live.stats.openAlerts)} open` : undefined}
           className="h-[360px] lg:col-span-7"
           bodyClassName="overflow-auto"
           actions={
-            <Link href={`/alerts?symbol=${encodeURIComponent(symbol)}`} className="rounded-[2px] px-1.5 font-condensed text-[12px] text-dim hover:bg-panelhi hover:text-text">
+            <Link href={`/alerts?symbol=${encodeURIComponent(symbol)}`} className="rounded-[2px] px-1.5 text-[12px] text-dim underline-offset-2 hover:bg-panelhi hover:text-text hover:underline">
               All alerts
             </Link>
           }
@@ -246,33 +255,6 @@ export function Dashboard() {
         </Panel>
       </div>
     </div>
-  );
-}
-
-function IconButton({
-  label,
-  onClick,
-  children,
-  pressed,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-  pressed?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      aria-pressed={pressed}
-      className={`inline-flex h-6 w-7 items-center justify-center rounded-[2px] ${pressed ? "bg-panelhi text-text" : "text-dim hover:bg-panelhi hover:text-text"}`}
-    >
-      <span aria-hidden="true" className="inline-flex">
-        {children}
-      </span>
-    </button>
   );
 }
 
@@ -300,16 +282,22 @@ function Toolbar({
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-seam bg-ink px-3 py-2">
-      <h1 className="sr-only">Dashboard for {symbol}</h1>
-      <label htmlFor="symbol-picker" className="font-condensed text-[11px] font-medium text-dim">
+    <PageHeader
+      eyebrow="Dashboard"
+      title={
+        <>
+          Watching <span className="font-mono text-[0.8em] tracking-normal">{symbol}</span>
+        </>
+      }
+    >
+      <label htmlFor="symbol-picker" className="text-xs font-medium text-dim">
         Symbol
       </label>
       <select
         id="symbol-picker"
         value={symbol}
         onChange={(e) => onChoose(e.target.value)}
-        className={`${inputClass} num w-auto min-w-[9rem] font-mono`}
+        className={`${selectClass} num w-auto min-w-[9rem] font-mono`}
       >
         {options.map((s) => (
           <option key={s.symbol} value={s.symbol}>
@@ -322,7 +310,7 @@ function Toolbar({
         {paused ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
         {paused ? "Resume" : "Pause"}
       </Button>
-      <span className="ml-auto font-condensed text-[12px] text-dim" role="status">
+      <span className="min-w-[11rem] text-xs text-dim" role="status">
         {paused ? (
           <>
             <span aria-hidden="true">❚❚ </span>Paused
@@ -333,13 +321,13 @@ function Toolbar({
           </>
         ) : lastOk ? (
           <>
-            <span aria-hidden="true" className="text-text">● </span>Live, updated {fmtRelative(lastOk)}
+            <span aria-hidden="true" className="text-bid">● </span>Live, updated {fmtRelative(lastOk)}
           </>
         ) : (
           "Connecting"
         )}
       </span>
-    </div>
+    </PageHeader>
   );
 }
 
@@ -351,7 +339,7 @@ function KpiStrip({ live }: { live: Live }) {
   const lastEvent = live.feed?.events[0];
   const dir = change === null ? "" : change > 0 ? " ▲" : change < 0 ? " ▼" : "";
   return (
-    <div className="grid grid-cols-2 gap-px border-b border-seam bg-seam sm:grid-cols-4 lg:grid-cols-7">
+    <div className="stagger grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
       <Kpi label="Last price" value={fmtPrice(last)} sub={live.chart?.priceSource === "quotes" ? "quoted, no trades" : "last trade"} />
       <Kpi
         label="Change, 5 min"
@@ -402,7 +390,7 @@ function DepthLadder({ stats }: { stats: StatsResponse | null }) {
     <table className="num w-full text-[12px]">
       <caption className="sr-only">Approximate order book: offers above, bids below</caption>
       <thead>
-        <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+        <tr className="border-b border-seam text-[11px] text-dim">
           <th scope="col" className="px-2 py-1 text-right font-medium">Orders</th>
           <th scope="col" className="px-2 py-1 text-right font-medium">Size</th>
           <th scope="col" className="px-2 py-1 text-right font-medium">Price</th>
@@ -410,18 +398,18 @@ function DepthLadder({ stats }: { stats: StatsResponse | null }) {
       </thead>
       <tbody>
         <tr>
-          <th scope="rowgroup" colSpan={3} className="px-2 pt-1 text-left font-condensed text-[11px] font-medium text-dim">
+          <th scope="rowgroup" colSpan={3} className="px-2 pt-1 text-left text-[11px] font-medium text-dim">
             Offers <span aria-hidden="true">▼</span>
           </th>
         </tr>
         {asks.map((l) => row(l, "ask"))}
         <tr className="border-y border-seam bg-panelhi">
-          <td colSpan={3} className="px-2 py-0.5 text-right font-condensed text-[11px] text-dim">
+          <td colSpan={3} className="px-2 py-0.5 text-right text-[11px] text-dim">
             Spread <span className="num text-text">{spread === null ? "-" : fmtPrice(spread)}</span>
           </td>
         </tr>
         <tr>
-          <th scope="rowgroup" colSpan={3} className="px-2 pt-1 text-left font-condensed text-[11px] font-medium text-dim">
+          <th scope="rowgroup" colSpan={3} className="px-2 pt-1 text-left text-[11px] font-medium text-dim">
             Bids <span aria-hidden="true">▲</span>
           </th>
         </tr>
@@ -467,7 +455,7 @@ function TimeAndSales({ feed }: { feed: FeedResponse | null }) {
             type="button"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`h-6 px-3 font-condensed text-[12px] ${tab === t ? "bg-panelhi text-text" : "text-dim hover:text-text"}`}
+            className={`h-6 px-3 text-[12px] ${tab === t ? "bg-panelhi text-text" : "text-dim hover:text-text"}`}
           >
             {t === "trades" ? "Trades" : "All events"}
           </button>
@@ -480,7 +468,7 @@ function TimeAndSales({ feed }: { feed: FeedResponse | null }) {
           <table className="w-full text-[12px]">
             <caption className="sr-only">{tab === "trades" ? "Recent trades" : "Recent order events"}, newest first</caption>
             <thead className="sticky top-0 bg-panel">
-              <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+              <tr className="border-b border-seam text-[11px] text-dim">
                 <th scope="col" className="px-2 py-1 text-left font-medium">Time</th>
                 {tab === "all" && <th scope="col" className="px-2 py-1 text-left font-medium">Type</th>}
                 <th scope="col" className="px-2 py-1 text-left font-medium">Side</th>
@@ -532,7 +520,7 @@ function AlertBlotter({ alerts }: { alerts: AlertsResponse | null }) {
     <table className="w-full text-[12px]">
       <caption className="sr-only">Alerts on this symbol, newest first. Select a row to open its case.</caption>
       <thead className="sticky top-0 bg-panel">
-        <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+        <tr className="border-b border-seam text-[11px] text-dim">
           <th scope="col" className="px-2 py-1 text-left font-medium">Time</th>
           <th scope="col" className="px-2 py-1 text-left font-medium">Rule</th>
           <th scope="col" className="px-2 py-1 text-left font-medium">Verdict</th>
@@ -549,7 +537,7 @@ function AlertBlotter({ alerts }: { alerts: AlertsResponse | null }) {
           >
             <td className="num whitespace-nowrap px-2 py-1 text-[11px] text-dim">{fmtTimeMs(a.createdAt)}</td>
             <td className="px-2 py-1">
-              <Link href={`/alerts/${a.id}`} className="font-condensed text-[13px] text-text underline-offset-2 hover:underline">
+              <Link href={`/alerts/${a.id}`} className="text-[13px] text-text underline-offset-2 hover:underline">
                 {alertTypeLabel(a.alertType)}
                 <span className="sr-only">, open case</span>
               </Link>

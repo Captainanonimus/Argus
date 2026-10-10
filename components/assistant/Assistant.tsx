@@ -7,7 +7,7 @@ import { ArrowSquareOut, Check, Copy, PaperPlaneRight, Stop, Trash, X } from "@p
 import { errorMessage, fetchJson, isAbortError, type AlertCaseResponse, type SymbolsResponse } from "@/lib/clientApi";
 import { alertTypeLabel } from "@/lib/format";
 import { safeStorage, useSettingsStatus } from "@/components/app/hooks";
-import { Button, ErrorState, Label, Panel, PageHeader, VerdictBadge, buttonClass, inputClass } from "@/components/app/ui";
+import { Button, ErrorState, Label, Panel, PageHeader, VerdictBadge, buttonClass, selectClass, textareaClass } from "@/components/app/ui";
 import { KeyForm } from "@/components/settings/KeyForm";
 import { Markdown } from "./Markdown";
 
@@ -216,17 +216,17 @@ export function Assistant() {
   const elapsed = pending ? Math.floor((Date.now() - startedAt) / 1000) : 0;
 
   return (
-    <div className="flex min-h-[calc(100vh-2.75rem-1.75rem)] flex-col">
-      <PageHeader title="Assistant">
+    <div className="flex flex-col">
+      <PageHeader title="Assistant" description="Ask about alerts, cases and the rules. Answers are grounded in Argus data first, with web sources only when you turn them on.">
         <Button size="sm" variant="ghost" onClick={clearChat} disabled={messages.length === 0}>
           <Trash size={14} aria-hidden="true" />
           Clear conversation
         </Button>
       </PageHeader>
 
-      <div className="grid flex-1 gap-px bg-seam lg:grid-cols-12">
+      <div className="stagger grid flex-1 gap-4 lg:grid-cols-12">
         <Panel n={1} title="Conversation" meta="answers use Argus data first" className="min-h-[520px] lg:col-span-8" bodyClassName="flex flex-col">
-          <div ref={logRef} role="log" aria-label="Conversation" className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 lg:max-h-[calc(100vh-15rem)]">
+          <div ref={logRef} role="log" aria-label="Conversation" className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 lg:max-h-[calc(100vh-22rem)]">
             {messages.length === 0 && !pending && (
               <div className="space-y-3">
                 <p className="max-w-[60ch] text-[13px] leading-[18px] text-dim">
@@ -241,7 +241,7 @@ export function Assistant() {
                         type="button"
                         onClick={() => send(p)}
                         disabled={pending || noModelKey}
-                        className="w-full rounded-[2px] border border-seam bg-ink px-3 py-2 text-left text-[13px] leading-[18px] hover:border-dim disabled:opacity-50"
+                        className="w-full rounded border border-edge bg-ink px-3 py-2 text-left text-[13px] leading-[18px] transition-colors duration-150 hover:bg-panelhi disabled:opacity-50"
                       >
                         {p}
                       </button>
@@ -264,7 +264,7 @@ export function Assistant() {
 
           {requestError && <ErrorState compact message={requestError} />}
 
-          <form onSubmit={onSubmit} className="shrink-0 border-t border-seam p-2">
+          <form onSubmit={onSubmit} className="shrink-0 border-t border-seam p-3">
             <label htmlFor="chat-input" className="sr-only">
               Message the assistant
             </label>
@@ -282,7 +282,7 @@ export function Assistant() {
               rows={3}
               maxLength={8000}
               placeholder={noModelKey ? "Save an OpenRouter key to start chatting" : "Ask about an alert, a symbol or a rule. Enter sends, Shift+Enter adds a line."}
-              className="w-full resize-y rounded-[2px] border border-seam bg-ink p-2 text-[13px] leading-[18px] text-text placeholder:text-dim/70"
+              className={textareaClass}
             />
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <label className="inline-flex items-center gap-2 text-[13px]">
@@ -292,7 +292,7 @@ export function Assistant() {
                   aria-checked={useWeb}
                   checked={useWeb}
                   onChange={(e) => setUseWeb(e.target.checked)}
-                  className="h-4 w-4 accent-[#D7DCE5]"
+                  className="h-4 w-4 accent-[#1A1614]"
                 />
                 Search the web with TinyFish
               </label>
@@ -313,14 +313,14 @@ export function Assistant() {
           </form>
         </Panel>
 
-        <div className="flex flex-col gap-px lg:col-span-4">
-          <Panel n={2} title="Context" bodyClassName="space-y-3 p-3">
+        <div className="flex flex-col gap-4 lg:col-span-4">
+          <Panel n={2} title="Context" bodyClassName="space-y-3 p-4">
             {alertId && (
               <div className="rounded-[2px] border border-seam bg-ink p-2">
                 {caseInfo ? (
                   <>
                     <p className="flex flex-wrap items-center gap-2 text-[13px]">
-                      <span className="font-condensed font-semibold">
+                      <span className="font-semibold">
                         Case: {alertTypeLabel(caseInfo.alert.alertType)} on {caseInfo.event.symbol}
                       </span>
                       <VerdictBadge verdict={caseInfo.alert.verdict} />
@@ -345,7 +345,7 @@ export function Assistant() {
             )}
             <div>
               <Label htmlFor="chat-scope">Symbol scope</Label>
-              <select id="chat-scope" value={symbol} onChange={(e) => setSymbol(e.target.value)} className={`${inputClass} font-mono`}>
+              <select id="chat-scope" value={symbol} onChange={(e) => setSymbol(e.target.value)} className={`${selectClass} font-mono`}>
                 <option value="">All symbols</option>
                 {symbols.map((s) => (
                   <option key={s} value={s}>
@@ -357,7 +357,7 @@ export function Assistant() {
           </Panel>
 
           {noModelKey && (
-            <Panel n={3} title="Connect the AI models" bodyClassName="space-y-2 p-3">
+            <Panel n={3} title="Connect the AI models" bodyClassName="space-y-2 p-4">
               <p className="text-[13px] leading-[18px]">
                 The assistant runs on free open models through OpenRouter. Paste a key to enable answers. It stays in this
                 browser&apos;s secure cookie.
@@ -366,7 +366,7 @@ export function Assistant() {
             </Panel>
           )}
           {noWebKey && (
-            <Panel n={noModelKey ? 4 : 3} title="Add web search" bodyClassName="space-y-2 p-3">
+            <Panel n={noModelKey ? 4 : 3} title="Add web search" bodyClassName="space-y-2 p-4">
               <p className="text-[13px] leading-[18px]">
                 With a TinyFish key the assistant can search the web and cite the pages it read.{" "}
                 <a
@@ -383,7 +383,6 @@ export function Assistant() {
               <KeyForm provider="tinyfish" compact />
             </Panel>
           )}
-          <div className="flex-1 bg-panel" />
         </div>
       </div>
     </div>
@@ -412,7 +411,7 @@ function MessageView({ msg }: { msg: Msg }) {
   }
   return (
     <div className="max-w-[95%]">
-      <div className="mb-1 flex flex-wrap items-center gap-2 font-condensed text-[11px] text-dim">
+      <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] text-dim">
         <span className="font-semibold text-text">Argus assistant</span>
         {msg.model && <span className="num">{msg.model}</span>}
         {msg.usedWeb && <span>with web sources</span>}
@@ -451,7 +450,7 @@ function MessageView({ msg }: { msg: Msg }) {
       )}
       {msg.sources && msg.sources.length > 0 && (
         <div className="mt-2">
-          <p className="font-condensed text-[11px] text-dim">Web sources (not Argus data)</p>
+          <p className="text-[11px] text-dim">Web sources (not Argus data)</p>
           <ol className="mt-1 flex flex-wrap gap-1.5">
             {msg.sources.map((s) => (
               <li key={s.n}>
@@ -460,7 +459,7 @@ function MessageView({ msg }: { msg: Msg }) {
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   title={s.snippet || s.title}
-                  className="inline-flex max-w-[18rem] items-center gap-1.5 rounded-[2px] border border-seam px-2 py-1 text-[12px] hover:border-dim"
+                  className="inline-flex max-w-[18rem] items-center gap-1.5 rounded-[2px] border border-seam px-2 py-1 text-[12px] hover:border-edge"
                 >
                   <span className="num text-dim">[{s.n}]</span>
                   <span className="truncate">{s.title}</span>

@@ -14,20 +14,19 @@ export function Settings() {
 
   return (
     <div>
-      <PageHeader title="Settings" />
-      <p className="border-b border-seam bg-ink px-3 pb-3 text-[13px] leading-[18px] text-dim sm:px-4">
-        Keys are stored in a secure, httpOnly cookie in this browser only. They are sent to the Argus server with each
-        request, never shown again, and never readable by page scripts. Clearing your cookies removes them.
-      </p>
+      <PageHeader
+        title="Settings"
+        description="Keys are stored in a secure, httpOnly cookie in this browser only. They are sent to the Argus server with each request, never shown again, and never readable by page scripts. Clearing your cookies removes them."
+      />
       {error && !status && <ErrorState message={`Could not read settings status. ${error}`} onRetry={reload} />}
       {!status && !error && <LoadingState label="Loading settings" rows={6} />}
       {status && (
-        <div className="grid gap-px bg-seam lg:grid-cols-2">
+        <div className="stagger grid gap-4 lg:grid-cols-2">
           <KeyPanel n={1} provider="openrouter" status={status} />
           <KeyPanel n={2} provider="tinyfish" status={status} />
-          <Panel n={3} title="Database" className="lg:col-span-2" bodyClassName="p-3">
+          <Panel n={3} title="Database" className="lg:col-span-2" bodyClassName="p-4">
             <p className="text-[13px]">
-              <span aria-hidden="true">{status.db ? "● " : "○ "}</span>
+              <span aria-hidden="true" className={status.db ? "text-bid" : "text-ask"}>{status.db ? "● " : "○ "}</span>
               {status.db ? "Connected. Events and alerts are being saved." : "The database is not reachable. Events cannot be saved until it is back."}
             </p>
             <Button size="sm" className="mt-2" onClick={reload}>
@@ -82,11 +81,11 @@ function KeyPanel({ n, provider, status }: { n: number; provider: KeyProvider; s
   };
 
   return (
-    <Panel n={n} id={provider} title={p.name} meta={sourceText(source)} bodyClassName="space-y-3 p-3">
+    <Panel n={n} id={provider} title={p.name} meta={sourceText(source)} bodyClassName="space-y-3 p-4">
       <p className="text-[13px] leading-[18px]">{p.purpose}</p>
       <p className="flex items-center gap-2 text-[13px]">
         <span
-          className={`inline-flex h-6 items-center gap-1.5 rounded-[2px] border px-2 font-condensed text-[12px] ${source ? "border-seam" : "border-ask/70"}`}
+          className={`inline-flex h-6 items-center gap-1.5 rounded-[2px] border px-2 text-[12px] ${source ? "border-seam" : "border-ask/70"}`}
         >
           <span aria-hidden="true">{source ? "●" : "○"}</span>
           {sourceText(source)}
@@ -107,7 +106,7 @@ function KeyPanel({ n, provider, status }: { n: number; provider: KeyProvider; s
           href={p.signUpUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-7 items-center gap-1 px-1 font-condensed text-[12px] text-dim underline underline-offset-2 hover:text-text"
+          className="inline-flex h-7 items-center gap-1 px-1 text-[12px] text-dim underline underline-offset-2 hover:text-text"
         >
           {provider === "tinyfish" ? "Sign up at TinyFish" : "Open OpenRouter"}
           <ArrowSquareOut size={12} aria-hidden="true" />

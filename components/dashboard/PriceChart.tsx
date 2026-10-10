@@ -343,7 +343,7 @@ function OhlcTable({ data }: { data: ChartResponse }) {
       <table className="w-full text-[12px]">
         <caption className="sr-only">Last {rows.length} one-second bars for {data.symbol}, newest first</caption>
         <thead className="sticky top-0 bg-panel">
-          <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+          <tr className="border-b border-seam text-[11px] text-dim">
             <th scope="col" className="px-2 py-1 text-left font-medium">Time</th>
             <th scope="col" className="px-2 py-1 text-right font-medium">Open</th>
             <th scope="col" className="px-2 py-1 text-right font-medium">High</th>

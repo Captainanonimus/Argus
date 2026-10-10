@@ -21,8 +21,10 @@ import {
   LoadingState,
   PageHeader,
   VerdictBadge,
+  Card,
   buttonClass,
   inputClass,
+  selectClass,
 } from "@/components/app/ui";
 
 type SortKey = "time" | "symbol" | "type" | "verdict" | "metric" | "status";
@@ -168,7 +170,7 @@ export function AlertsTable() {
 
   return (
     <div>
-      <PageHeader title="Alerts">
+      <PageHeader title="Alerts" description="Every alert the surveillance engine raised, newest first. Filter, triage the status in place, or open a case.">
         <a href={exportHref} download className={buttonClass("secondary", "sm")}>
           <DownloadSimple size={14} aria-hidden="true" />
           Export CSV
@@ -179,7 +181,7 @@ export function AlertsTable() {
         role="search"
         aria-label="Filter alerts"
         onSubmit={(e) => e.preventDefault()}
-        className="grid grid-cols-2 gap-x-3 gap-y-2 border-b border-seam bg-panel px-3 py-3 sm:grid-cols-3 lg:grid-cols-6"
+        className="mb-4 grid grid-cols-2 gap-x-3 gap-y-3 rounded-[2px] border border-seam bg-panel p-4 sm:grid-cols-3 lg:grid-cols-6"
       >
         <SelectFilter id="f-status" label="Status" value={filters.status} onChange={(v) => setParam({ status: v })}
           options={ALERT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))} />
@@ -201,7 +203,7 @@ export function AlertsTable() {
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <Label htmlFor="f-limit">Rows</Label>
-            <select id="f-limit" value={limit} onChange={(e) => setParam({ limit: e.target.value === "50" ? "" : e.target.value })} className={inputClass}>
+            <select id="f-limit" value={limit} onChange={(e) => setParam({ limit: e.target.value === "50" ? "" : e.target.value })} className={selectClass}>
               {PAGE_SIZES.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -222,7 +224,7 @@ export function AlertsTable() {
       {!error && loading && !data && <LoadingState label="Loading alerts" rows={10} />}
 
       {!error && data && rows.length === 0 && (
-        <div className="bg-panel">
+        <Card>
           {hasFilters || page > 0 ? (
             <EmptyState
               title="No alerts match these filters."
@@ -239,17 +241,17 @@ export function AlertsTable() {
               body="Alerts are raised when a surveillance rule fires. Run the spoofing or quote stuffing scenario to see one."
             />
           )}
-        </div>
+        </Card>
       )}
 
       {!error && data && rows.length > 0 && (
-        <div className={`overflow-x-auto bg-panel ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+        <div className={`overflow-x-auto rounded-[2px] border border-seam bg-panel transition-opacity duration-150 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
           <table className="w-full min-w-[760px] text-[12px]">
             <caption className="sr-only">
               Alerts, page {page + 1}. Column headers sort the rows on this page.
             </caption>
             <thead>
-              <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+              <tr className="border-b border-seam text-[11px] text-dim">
                 <SortHeader label="Time" k="time" sort={sort} setSort={setSort} />
                 <SortHeader label="Symbol" k="symbol" sort={sort} setSort={setSort} />
                 <SortHeader label="Rule" k="type" sort={sort} setSort={setSort} />
@@ -272,7 +274,7 @@ export function AlertsTable() {
                     </Link>
                   </td>
                   <td className="px-2 py-1.5">
-                    <Link href={`/alerts/${a.id}`} className="font-condensed text-[13px] font-semibold text-text underline-offset-2 hover:underline">
+                    <Link href={`/alerts/${a.id}`} className="text-[13px] font-semibold text-text underline-offset-2 hover:underline">
                       {ALERT_TYPE_LABEL[a.alertType] ?? a.alertType}
                       <span className="sr-only">, open case</span>
                     </Link>
@@ -288,7 +290,7 @@ export function AlertsTable() {
                       value={a.status}
                       disabled={saving === a.id}
                       onChange={(e) => changeStatus(a, e.target.value as AlertStatus)}
-                      className={`${inputClass} h-7 w-auto pr-6 font-condensed`}
+                      className={`${selectClass} h-8 w-auto`}
                     >
                       {ALERT_STATUSES.map((s) => (
                         <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -304,7 +306,7 @@ export function AlertsTable() {
       )}
 
       {!error && data && (rows.length > 0 || page > 0) && (
-        <nav aria-label="Pagination" className="flex items-center gap-2 border-t border-seam bg-ink px-3 py-2">
+        <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center gap-2">
           <Button size="sm" disabled={page === 0 || loading} onClick={() => setCursors((c) => c.slice(0, -1))}>
             Previous
           </Button>
@@ -341,7 +343,7 @@ function SelectFilter({
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={selectClass}>
         <option value="">Any</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>

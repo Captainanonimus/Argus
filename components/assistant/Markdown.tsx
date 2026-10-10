@@ -39,7 +39,7 @@ function inline(text: string, sources: CitationSource[], keyBase: string): React
       const href = safeUrl(m[5]);
       out.push(
         href ? (
-          <a key={k} href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-2 hover:text-white">
+          <a key={k} href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-2 hover:decoration-2">
             {m[4]}
           </a>
         ) : (
@@ -59,7 +59,7 @@ function inline(text: string, sources: CitationSource[], keyBase: string): React
             rel="noopener noreferrer nofollow"
             aria-label={`Source ${n}: ${src.title}`}
             title={src.title}
-            className="num mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-[2px] border border-seam px-1 align-[1px] text-[10px] text-text hover:border-dim"
+            className="num mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-[2px] border border-seam px-1 align-[1px] text-[10px] text-text hover:border-edge"
           >
             {n}
           </a>
@@ -170,7 +170,7 @@ export function Markdown({ text, sources = [] }: { text: string; sources?: Citat
         switch (b.kind) {
           case "h":
             return (
-              <p key={k} className="pt-1 font-condensed text-[14px] font-semibold">
+              <p key={k} className="pt-1 text-[14px] font-semibold">
                 {inline(b.text, sources, k)}
               </p>
             );
@@ -198,7 +198,7 @@ export function Markdown({ text, sources = [] }: { text: string; sources?: Citat
               <div key={k} className="overflow-x-auto">
                 <table className="w-full border-collapse text-[12px]">
                   <thead>
-                    <tr className="border-b border-seam text-left font-condensed text-dim">
+                    <tr className="border-b border-seam text-left text-dim">
                       {head.map((c, j) => (
                         <th key={j} scope="col" className="px-2 py-1 font-medium">
                           {inline(c, sources, `${k}-h${j}`)}

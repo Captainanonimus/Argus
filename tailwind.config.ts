@@ -9,16 +9,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0A0C10",
-        panel: "#12151C",
-        text: "#D7DCE5",
-        bid: "#2FBF71",
-        ask: "#E5484D",
-        alert: "#3DDBD9",
-        seam: "#232833",
-        dim: "#8A93A3",
+        // Semantic tokens resolve through CSS variables (app/globals.css):
+        // dark ink values by default and inside [data-surface="terminal"]
+        // market panels, parchment values on the light [data-surface="app"].
+        ink: "rgb(var(--c-ink) / <alpha-value>)",
+        panel: "rgb(var(--c-panel) / <alpha-value>)",
+        panelhi: "rgb(var(--c-panelhi) / <alpha-value>)",
+        text: "rgb(var(--c-text) / <alpha-value>)",
+        dim: "rgb(var(--c-dim) / <alpha-value>)",
+        seam: "rgb(var(--c-seam) / <alpha-value>)",
+        edge: "rgb(var(--c-edge) / <alpha-value>)",
+        bid: "rgb(var(--c-bid) / <alpha-value>)",
+        ask: "rgb(var(--c-ask) / <alpha-value>)",
+        alert: "rgb(var(--c-alert) / <alpha-value>)",
         chart: "#FFA028",
-        panelhi: "#191D26",
         // Marketing tokens resolve through CSS variables so the landing page
         // can interpolate them from parchment to ink on scroll.
         m: {
@@ -33,7 +37,6 @@ const config: Config = {
         display: ["var(--font-display)", "Georgia", "serif"],
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
-        condensed: ["var(--font-condensed)", "var(--font-body)", "system-ui", "sans-serif"],
       },
     },
   },

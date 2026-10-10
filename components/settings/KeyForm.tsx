@@ -69,7 +69,7 @@ export function KeyForm({
 
   return (
     <form onSubmit={save} className="space-y-2">
-      <label htmlFor={id} className={compact ? "sr-only" : "block font-condensed text-[11px] font-medium text-dim"}>
+      <label htmlFor={id} className={compact ? "sr-only" : "block text-[11px] font-medium text-dim"}>
         {p.name} API key
       </label>
       <div className="flex flex-wrap gap-2">

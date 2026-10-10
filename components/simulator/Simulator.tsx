@@ -215,15 +215,15 @@ export function Simulator() {
 
   return (
     <div>
-      <PageHeader title="Simulator">
+      <PageHeader title="Simulator" description="Stream a scripted scenario through the real surveillance engine and watch each verdict come back. Simulated symbols start with SIM.">
         <Button size="sm" variant="danger" onClick={manualReset} disabled={running || resetting}>
           <Trash size={14} aria-hidden="true" />
           {resetting ? "Resetting" : "Reset simulated data"}
         </Button>
       </PageHeader>
 
-      <div className="grid gap-px bg-seam lg:grid-cols-12">
-        <Panel n={1} title="Setup" className="lg:col-span-4" bodyClassName="space-y-3 p-3">
+      <div className="stagger grid gap-4 lg:grid-cols-12">
+        <Panel n={1} title="Setup" className="lg:col-span-4" bodyClassName="space-y-3 p-4">
           <div>
             <Label htmlFor="sim-symbol">Symbol</Label>
             <input
@@ -258,7 +258,7 @@ export function Simulator() {
               checked={clearFirst && isSim}
               disabled={!isSim || running}
               onChange={(e) => setClearFirst(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#D7DCE5]"
+              className="mt-0.5 h-4 w-4 accent-[#1A1614]"
             />
             <span>
               Clear simulated data before each run
@@ -293,13 +293,13 @@ export function Simulator() {
               return (
                 <li key={s.id} className={`grid gap-3 border-b border-seam px-3 py-3 sm:grid-cols-[1fr_auto] ${active ? "bg-panelhi" : ""}`}>
                   <div className="min-w-0">
-                    <h3 className="flex items-baseline gap-2 font-condensed text-[14px] font-semibold">
+                    <h3 className="flex items-baseline gap-2 text-[14px] font-semibold">
                       <span className="num text-[11px] text-dim">{String(idx + 1).padStart(2, "0")}</span>
                       {s.name}
                     </h3>
                     <p className="mt-0.5 text-[13px] leading-[18px] text-text">{s.summary}</p>
                     <p className="mt-0.5 text-[12px] leading-4 text-dim">
-                      <span className="font-condensed font-medium">Expected:</span> {s.expected}
+                      <span className="font-medium">Expected:</span> {s.expected}
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
@@ -326,18 +326,18 @@ export function Simulator() {
           </ol>
         </Panel>
 
-        <Panel n={3} title="Run" className="lg:col-span-4" bodyClassName="p-3">
+        <Panel n={3} title="Run" className="lg:col-span-4" bodyClassName="p-4">
           {run ? <RunStatus run={run} onStop={stop} /> : <p className="text-[13px] text-dim">Choose a scenario and press Run. Progress and verdicts appear here.</p>}
         </Panel>
 
-        <Panel n={4} title="Verdicts as they arrive" meta={log.length ? `${log.length} shown, newest first` : undefined} className="h-[420px] lg:col-span-8" bodyClassName="overflow-auto">
+        <Panel n={4} tone="terminal" title="Verdicts as they arrive" meta={log.length ? `${log.length} shown, newest first` : undefined} className="h-[420px] lg:col-span-8" bodyClassName="overflow-auto">
           {log.length === 0 ? (
             <p className="p-3 text-[13px] text-dim">No events sent yet.</p>
           ) : (
             <table className="w-full min-w-[640px] text-[12px]">
               <caption className="sr-only">Events sent in this run, newest first, with the engine&apos;s verdict</caption>
               <thead className="sticky top-0 bg-panel">
-                <tr className="border-b border-seam font-condensed text-[11px] text-dim">
+                <tr className="border-b border-seam text-[11px] text-dim">
                   <th scope="col" className="px-2 py-1 text-right font-medium">#</th>
                   <th scope="col" className="px-2 py-1 text-left font-medium">Time</th>
                   <th scope="col" className="px-2 py-1 text-left font-medium">Event</th>
@@ -368,7 +368,7 @@ export function Simulator() {
                         <span className="flex flex-wrap items-center gap-1.5">
                           <VerdictBadge verdict={r.verdict} />
                           {r.alertTypes.map((t) => (
-                            <span key={t} className="font-condensed text-[12px] text-alert">{alertTypeLabel(t)}</span>
+                            <span key={t} className="text-[12px] text-alert">{alertTypeLabel(t)}</span>
                           ))}
                           {r.verdict !== "CLEAR" && <span className="block w-full text-[11px] text-dim">{r.reason}</span>}
                         </span>
@@ -401,7 +401,7 @@ function RunStatus({ run, onStop }: { run: Run; onStop: () => void }) {
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="font-condensed text-[14px] font-semibold">{run.scenario.name}</p>
+        <p className="text-[14px] font-semibold">{run.scenario.name}</p>
         <p className="num text-[12px] text-dim">{run.symbol}</p>
       </div>
       <div>
@@ -424,15 +424,15 @@ function RunStatus({ run, onStop }: { run: Run; onStop: () => void }) {
           </span>
         </p>
       </div>
-      <dl className="grid grid-cols-4 gap-px bg-seam text-center">
+      <dl className="grid grid-cols-4 gap-px overflow-hidden rounded-[2px] border border-seam bg-seam text-center">
         {(["CLEAR", "REVIEW", "FLAG"] as const).map((v) => (
           <div key={v} className="bg-panel py-1.5">
-            <dt className="font-condensed text-[11px] text-dim">{v === "CLEAR" ? "Clear" : v === "REVIEW" ? "Review" : "Flag"}</dt>
+            <dt className="text-[11px] text-dim">{v === "CLEAR" ? "Clear" : v === "REVIEW" ? "Review" : "Flag"}</dt>
             <dd className={`num text-[16px] ${v === "FLAG" && run.counts.FLAG > 0 ? "text-alert" : ""}`}>{run.counts[v]}</dd>
           </div>
         ))}
         <div className="bg-panel py-1.5">
-          <dt className="font-condensed text-[11px] text-dim">Failed</dt>
+          <dt className="text-[11px] text-dim">Failed</dt>
           <dd className="num text-[16px]">{run.errors}</dd>
         </div>
       </dl>
@@ -447,7 +447,7 @@ function RunStatus({ run, onStop }: { run: Run; onStop: () => void }) {
       </p>
       {run.fired.length > 0 && (
         <p className="text-[13px]">
-          <span className="font-condensed text-dim">Rules fired: </span>
+          <span className="text-dim">Rules fired: </span>
           <span className="text-alert">{run.fired.map(alertTypeLabel).join(", ")}</span>
         </p>
       )}

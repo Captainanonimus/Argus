@@ -4,6 +4,8 @@ import { serverError } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+const MAX_SYMBOLS = 200;
+
 // Distinct symbols with their latest price and total event count.
 export async function GET() {
   try {
@@ -12,6 +14,7 @@ export async function GET() {
       _count: { _all: true },
       _max: { createdAt: true },
       orderBy: { symbol: "asc" },
+      take: MAX_SYMBOLS,
     });
 
     const symbols = await Promise.all(

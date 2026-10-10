@@ -5,11 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { List, X, MagnifyingGlass } from "@phosphor-icons/react";
 import { fetchJson, type StatsResponse, type SymbolsResponse } from "@/lib/clientApi";
+import { StatChip, buttonClass, inputClass } from "@/components/ui";
 import { normalizeTicker } from "./ticker";
 import { NAV, matchPage } from "./nav";
 import { safeStorage, useSettingsStatus } from "./hooks";
 
 const BANNER_KEY = "argus.firstRunDismissed";
+
+// Same container, height and wordmark as the landing page header, so moving
+// from the landing page into the app keeps the brand in the same place.
+const CONTAINER = "mx-auto w-full max-w-[88rem] px-4 sm:px-6 lg:px-10";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -43,19 +48,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   return (
-    <div data-surface="terminal" className="flex min-h-screen flex-col bg-ink font-sans text-text">
+    <div data-surface="app" className="flex min-h-screen flex-col bg-ink font-sans text-text antialiased">
       <a
         href="#main"
-        className="sr-only z-[500] rounded-[2px] bg-text px-3 py-2 text-ink focus:not-sr-only focus:fixed focus:left-2 focus:top-2"
+        className="sr-only z-[500] rounded bg-text px-3 py-2 text-ink focus:not-sr-only focus:fixed focus:left-2 focus:top-2"
       >
         Skip to content
       </a>
       <TopBar commandRef={commandRef} onMenu={() => setDrawerOpen(true)} />
-      <div className="flex min-h-0 flex-1">
-        <nav aria-label="Main" data-print-hide className="hidden w-44 shrink-0 border-r border-seam bg-panel md:block">
-          <NavList pathname={pathname} />
+      <div className={`${CONTAINER} flex min-h-0 flex-1 gap-8`}>
+        <nav aria-label="Main" data-print-hide className="hidden w-40 shrink-0 md:block">
+          <div className="sticky top-16 py-6">
+            <NavList pathname={pathname} />
+          </div>
         </nav>
-        <main id="main" tabIndex={-1} className="min-w-0 flex-1 focus:outline-none">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 pb-12 pt-6 focus:outline-none">
           <FirstRunBanner pathname={pathname} />
           {children}
         </main>
@@ -68,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
-    <ul className="py-2">
+    <ul className="space-y-0.5">
       {NAV.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
@@ -77,15 +84,20 @@ function NavList({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
               href={item.href}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
-              className={`flex h-8 items-center gap-2 px-3 font-condensed text-[13px] font-medium ${
-                active ? "bg-panelhi text-text" : "text-dim hover:bg-panelhi hover:text-text"
+              className={`flex h-9 items-center gap-3 rounded-[2px] px-2 text-sm transition-colors duration-150 ${
+                active ? "font-medium text-text" : "text-dim hover:bg-panelhi hover:text-text"
               }`}
             >
-              <span className="num w-4 text-[11px] text-dim" aria-hidden="true">
+              <span className="num w-3 text-[11px] text-dim" aria-hidden="true">
                 {item.key}
               </span>
-              <span>{item.label}</span>
-              {active && <span className="ml-auto h-3 w-px bg-text" aria-hidden="true" />}
+              {/* Current page: the landing page's 2px gradient rule under the label. */}
+              <span className="relative">
+                {item.label}
+                {active && (
+                  <span aria-hidden="true" className="absolute inset-x-0 -bottom-1 h-[2px]" style={{ background: "var(--m-gradient)" }} />
+                )}
+              </span>
             </Link>
           </li>
         );
@@ -102,21 +114,23 @@ function TopBar({
   onMenu: () => void;
 }) {
   return (
-    <header data-print-hide className="sticky top-0 z-[100] flex h-11 shrink-0 items-center gap-2 border-b border-seam bg-ink px-2 sm:gap-3 sm:px-3">
-      <button
-        type="button"
-        onClick={onMenu}
-        aria-label="Open navigation"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-[2px] text-text hover:bg-panelhi md:hidden"
-      >
-        <List size={18} aria-hidden="true" />
-      </button>
-      <Link href="/" className="shrink-0 rounded-[2px] font-condensed text-[15px] font-semibold tracking-[0.08em] text-text">
-        ARGUS
-      </Link>
-      <CommandBox inputRef={commandRef} />
-      <StatusChips />
-      <Clock />
+    <header data-print-hide className="sticky top-0 z-[100] shrink-0 border-b border-seam bg-ink">
+      <div className={`${CONTAINER} flex h-16 items-center gap-3 sm:gap-4`}>
+        <button
+          type="button"
+          onClick={onMenu}
+          aria-label="Open navigation"
+          className="-ml-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[2px] text-text hover:bg-panelhi md:hidden"
+        >
+          <List size={20} aria-hidden="true" />
+        </button>
+        <Link href="/" className="shrink-0 rounded-[2px] text-lg font-semibold tracking-[-0.01em] text-text">
+          Argus
+        </Link>
+        <CommandBox inputRef={commandRef} />
+        <StatusChips />
+        <Clock />
+      </div>
     </header>
   );
 }
@@ -158,11 +172,11 @@ function CommandBox({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> 
   );
 
   return (
-    <form role="search" onSubmit={submit} className="relative min-w-0 flex-1 sm:max-w-md">
+    <form role="search" onSubmit={submit} className="relative min-w-0 flex-1 sm:max-w-sm lg:ml-6">
       <label htmlFor="command" className="sr-only">
         Command: type a symbol or page name and press Enter
       </label>
-      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[13px] text-dim" aria-hidden="true">
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-[13px] text-dim" aria-hidden="true">
         &gt;
       </span>
       <input
@@ -184,11 +198,11 @@ function CommandBox({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> 
         spellCheck={false}
         placeholder="Symbol or page, then Enter"
         aria-describedby="command-hint"
-        className="h-8 w-full rounded-[2px] border border-seam bg-panel pl-6 pr-14 font-mono text-[13px] uppercase text-text placeholder:normal-case placeholder:text-dim/70 hover:border-dim"
+        className={`${inputClass} bg-panel pl-6 pr-14 font-mono uppercase placeholder:font-sans placeholder:normal-case`}
       />
-      <span className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 text-dim sm:flex" aria-hidden="true">
+      <span className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 items-center gap-1 text-dim sm:flex" aria-hidden="true">
         <MagnifyingGlass size={12} />
-        <kbd className="num rounded-[2px] border border-seam px-1 text-[10px]">/</kbd>
+        <kbd className="num rounded-[2px] border border-edge px-1 text-[10px]">/</kbd>
       </span>
       <datalist id="command-suggestions">
         {symbols.map((s) => (
@@ -198,7 +212,15 @@ function CommandBox({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> 
           <option key={n.href} value={n.label} />
         ))}
       </datalist>
-      <p id="command-hint" role="status" className={hint ? "absolute left-0 top-9 z-[200] whitespace-nowrap rounded-[2px] border border-seam bg-panel px-2 py-1 text-[12px] text-text" : "sr-only"}>
+      <p
+        id="command-hint"
+        role="status"
+        className={
+          hint
+            ? "absolute left-0 top-11 z-[200] max-w-[calc(100vw-2rem)] rounded-[2px] border border-edge bg-ink px-2.5 py-1.5 text-[12px] text-text sm:whitespace-nowrap"
+            : "sr-only"
+        }
+      >
         {hint ?? ""}
       </p>
     </form>
@@ -207,18 +229,13 @@ function CommandBox({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> 
 
 function Chip({ label, value, ok, href }: { label: string; value: string; ok: boolean | null; href: string }) {
   return (
-    <Link
-      href={href}
-      className={`inline-flex h-7 items-center gap-1.5 rounded-[2px] border px-2 font-condensed text-[12px] ${
-        ok === false ? "border-ask/70 text-text" : "border-seam text-text hover:border-dim"
-      }`}
-      aria-label={`${label}: ${value}`}
-    >
-      <span aria-hidden="true" className={ok === false ? "text-text" : "text-dim"}>
-        {ok === null ? "…" : ok ? "●" : "○"}
-      </span>
-      <span className="text-dim">{label}</span>
-      <span className="hidden lg:inline">{value}</span>
+    <Link href={href} className="rounded-[2px]" aria-label={`${label}: ${value}`}>
+      <StatChip
+        label={label}
+        ok={ok}
+        value={<span className="hidden xl:inline">{value}</span>}
+        className="transition-colors duration-150 hover:border-edge"
+      />
     </Link>
   );
 }
@@ -227,7 +244,7 @@ function StatusChips() {
   const { status, error } = useSettingsStatus();
   const known = status !== null;
   return (
-    <div className="ml-auto hidden items-center gap-1.5 sm:flex" aria-label="System status">
+    <div className="ml-auto hidden items-center gap-1.5 sm:flex" role="group" aria-label="System status">
       <Chip
         label="Database"
         value={error ? "unreachable" : !known ? "checking" : status.db ? "connected" : "down"}
@@ -259,7 +276,7 @@ function Clock() {
     return () => clearInterval(id);
   }, []);
   return (
-    <span className="num hidden shrink-0 text-[12px] text-dim xl:inline" aria-label="UTC time">
+    <span className="num hidden shrink-0 text-xs text-dim 2xl:inline" aria-label="UTC time">
       {now} UTC
     </span>
   );
@@ -267,28 +284,30 @@ function Clock() {
 
 function FunctionBar({ pathname }: { pathname: string }) {
   return (
-    <nav aria-label="Shortcuts" data-print-hide className="hidden h-7 shrink-0 items-stretch border-t border-seam bg-ink md:flex">
-      {NAV.map((item) => {
-        const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            title={`Alt+${item.key}`}
-            className={`flex items-center gap-1.5 border-r border-seam px-2 font-condensed text-[12px] ${
-              active ? "bg-panelhi text-text" : "text-dim hover:bg-panelhi hover:text-text"
-            }`}
-          >
-            <kbd className="num rounded-[2px] bg-seam px-1 text-[10px] text-text">{item.key}</kbd>
-            {item.label}
-          </Link>
-        );
-      })}
-      <span className="ml-auto flex items-center px-3 font-condensed text-[11px] text-dim">
-        Alt+number jumps to a page
-        <kbd className="num ml-3 mr-1 rounded-[2px] border border-seam px-1 text-[10px]">/</kbd> command
-      </span>
+    <nav aria-label="Shortcuts" data-print-hide className="hidden shrink-0 border-t border-seam md:block">
+      <div className={`${CONTAINER} flex h-10 items-center gap-1 text-xs`}>
+        {NAV.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              title={`Alt+${item.key}`}
+              className={`flex h-7 items-center gap-1.5 rounded-[2px] px-2 transition-colors duration-150 ${
+                active ? "font-medium text-text" : "text-dim hover:bg-panelhi hover:text-text"
+              }`}
+            >
+              <kbd className="num rounded-[2px] border border-edge px-1 text-[10px] text-text">{item.key}</kbd>
+              {item.label}
+            </Link>
+          );
+        })}
+        <span className="ml-auto hidden items-center text-dim lg:flex">
+          Alt+number jumps to a page
+          <kbd className="num ml-3 mr-1 rounded-[2px] border border-edge px-1 text-[10px] text-text">/</kbd> command
+        </span>
+      </div>
     </nav>
   );
 }
@@ -322,26 +341,28 @@ function Drawer({ pathname, onClose }: { pathname: string; onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-[400] md:hidden">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-[#1A1614]/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="Navigation"
-        className="absolute inset-y-0 left-0 w-64 max-w-[85vw] border-r border-seam bg-panel"
+        className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto border-r border-seam bg-ink"
       >
-        <div className="flex h-11 items-center justify-between border-b border-seam px-3">
-          <span className="font-condensed text-[15px] font-semibold tracking-[0.08em]">ARGUS</span>
+        <div className="flex h-16 items-center justify-between border-b border-seam px-4">
+          <span className="text-lg font-semibold tracking-[-0.01em]">Argus</span>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[2px] hover:bg-panelhi"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[2px] hover:bg-panelhi"
           >
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
-        <NavList pathname={pathname} onNavigate={onClose} />
+        <div className="px-2 py-4">
+          <NavList pathname={pathname} onNavigate={onClose} />
+        </div>
         <MobileStatus />
       </div>
     </div>
@@ -355,13 +376,15 @@ function MobileStatus() {
     <li className="flex justify-between">
       <span className="text-dim">{label}</span>
       <span>
-        <span aria-hidden="true">{ok ? "● " : "○ "}</span>
+        <span aria-hidden="true" className={ok ? "text-bid" : "text-dim"}>
+          {ok ? "● " : "○ "}
+        </span>
         {ok ? "ready" : "not set"}
       </span>
     </li>
   );
   return (
-    <ul className="mx-3 mt-2 space-y-1 border-t border-seam pt-3 font-condensed text-[12px]">
+    <ul className="mx-4 space-y-1.5 border-t border-seam pt-4 text-[13px]">
       {row("Database", status.db)}
       {row("AI models", status.openrouter)}
       {row("Web search", status.tinyfish)}
@@ -386,13 +409,13 @@ function FirstRunBanner({ pathname }: { pathname: string }) {
 
   if (!show || pathname.startsWith("/simulator")) return null;
   return (
-    <div data-print-hide className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-seam bg-panelhi px-3 py-2 sm:px-4">
-      <p className="text-[13px] leading-[18px] text-text">
+    <div data-print-hide className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[2px] border border-seam bg-panel px-4 py-3">
+      <p className="max-w-[70ch] text-sm leading-5 text-text">
         <span className="font-semibold">New here?</span> There is no order flow yet. Run a scenario in the simulator to
         generate events and see the rules fire.
       </p>
-      <div className="ml-auto flex items-center gap-2">
-        <Link href="/simulator" className="inline-flex h-7 items-center rounded-[2px] bg-text px-2 font-condensed text-[13px] font-semibold text-ink">
+      <div className="ml-auto flex items-center gap-3">
+        <Link href="/simulator" className={buttonClass("primary", "sm")}>
           Open the simulator
         </Link>
         <button
@@ -401,7 +424,7 @@ function FirstRunBanner({ pathname }: { pathname: string }) {
             safeStorage("local").set(BANNER_KEY, "1");
             setShow(false);
           }}
-          className="inline-flex h-7 items-center rounded-[2px] px-2 font-condensed text-[13px] text-dim hover:bg-panel hover:text-text"
+          className={buttonClass("ghost", "sm")}
         >
           Dismiss
         </button>

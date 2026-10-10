@@ -85,16 +85,22 @@ export function useVisiblePoll(fn: (signal: AbortSignal) => Promise<void>, ms: n
     let timer: ReturnType<typeof setTimeout> | undefined;
     let controller: AbortController | null = null;
     let stopped = false;
+    // Bumped on every start so a run aborted by a hide/show cycle cannot
+    // schedule a second, parallel polling chain when it settles.
+    let generation = 0;
 
     const run = async () => {
       if (stopped || document.visibilityState !== "visible") return;
+      const mine = ++generation;
       controller = new AbortController();
       try {
         await fnRef.current(controller.signal);
       } catch {
         // fn reports its own errors.
       }
-      if (!stopped && document.visibilityState === "visible") timer = setTimeout(run, ms);
+      if (!stopped && mine === generation && document.visibilityState === "visible") {
+        timer = setTimeout(run, ms);
+      }
     };
     const onVisibility = () => {
       clearTimeout(timer);
