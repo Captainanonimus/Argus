@@ -9,3 +9,6 @@ export type Verdict = (typeof VERDICTS)[number];
 
 export const ALERT_TYPES = ["quote_stuffing", "spoofing", "book_imbalance"] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
+
+export const ALERT_STATUSES = ["open", "investigating", "escalated", "dismissed"] as const;
+export type AlertStatus = (typeof ALERT_STATUSES)[number];

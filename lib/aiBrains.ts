@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { VERDICTS, type Verdict } from "./eventTypes";
+import { getOpenRouterKey } from "./keys";
 
 // Dual-brain check: two independent models judge an ambiguous market
 // situation; a third "last resort" model substitutes for a failed brain.
@@ -66,16 +66,33 @@ function inCooldown(model: string): boolean {
   return true;
 }
 
-async function getApiKey(): Promise<string | null> {
+// Diagnostics only: why a model call produced no verdict. Logs the model
+// name, a failure kind and a short fixed detail - never keys or bodies.
+type FailureKind =
+  | `http_${number}`
+  | "timeout"
+  | "network"
+  | "no_text_block"
+  | "bad_json"
+  | "bad_verdict"
+  | "cooldown"
+  | "not_configured";
+
+function warnBrain(model: string, kind: FailureKind, detail: string) {
+  console.warn(`[brain] ${model || "(unset)"} ${kind} ${detail.slice(0, 80)}`);
+}
+
+// Same checks as parseVerdict, used only to name the failure.
+function verdictFailureKind(text: string): "bad_json" | "bad_verdict" {
+  const stripped = text.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "");
+  const raw = extractFirstJsonObject(stripped);
+  if (!raw) return "bad_json";
   try {
-    // Works whether cookies() is sync (Next 14) or async (Next 15+).
-    const store = await Promise.resolve(cookies());
-    const fromCookie = store.get("openrouter_key")?.value?.trim();
-    if (fromCookie) return fromCookie;
+    JSON.parse(raw);
+    return "bad_verdict";
   } catch {
-    // Outside a request scope - fall through to the environment.
+    return "bad_json";
   }
-  return process.env.OPENROUTER_API_KEY?.trim() || null;
 }
 
 function buildUserPrompt(ctx: BrainContext): string {
@@ -148,7 +165,14 @@ async function callBrain(
   prompt: string,
   timeoutMs: number,
 ): Promise<BrainResult> {
-  if (!model || inCooldown(model)) return null;
+  if (!model) {
+    warnBrain(model, "not_configured", "model name not set");
+    return null;
+  }
+  if (inCooldown(model)) {
+    warnBrain(model, "cooldown", "skipped after a recent 404/429");
+    return null;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -171,12 +195,25 @@ async function callBrain(
 
     if (res.status === 404 || res.status === 429) {
       cooldownUntil.set(model, Date.now() + COOLDOWN_MS);
+      warnBrain(model, `http_${res.status}`, `cooling down for ${COOLDOWN_MS / 1000}s`);
       return null;
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      warnBrain(model, `http_${res.status}`, "request failed");
+      return null;
+    }
 
-    const data = (await res.json()) as { content?: unknown };
-    if (!Array.isArray(data.content)) return null;
+    let data: { content?: unknown };
+    try {
+      data = (await res.json()) as { content?: unknown };
+    } catch {
+      warnBrain(model, "bad_json", "response body was not JSON");
+      return null;
+    }
+    if (!Array.isArray(data.content)) {
+      warnBrain(model, "no_text_block", "response had no content array");
+      return null;
+    }
     // Replies may start with a "thinking" block - use the first text block.
     const textBlock = data.content.find(
       (b): b is { type: "text"; text: string } =>
@@ -185,11 +222,25 @@ async function callBrain(
         (b as { type?: unknown }).type === "text" &&
         typeof (b as { text?: unknown }).text === "string",
     );
-    if (!textBlock) return null;
+    if (!textBlock) {
+      warnBrain(model, "no_text_block", "no text block in content");
+      return null;
+    }
 
     const parsed = parseVerdict(textBlock.text);
-    return parsed ? { ...parsed, model } : null;
-  } catch {
+    if (!parsed) {
+      const kind = verdictFailureKind(textBlock.text);
+      warnBrain(
+        model,
+        kind,
+        kind === "bad_json" ? "no parseable JSON object in reply" : "verdict missing or not CLEAR|REVIEW|FLAG",
+      );
+      return null;
+    }
+    return { ...parsed, model };
+  } catch (err) {
+    if (controller.signal.aborted) warnBrain(model, "timeout", `no reply within ${timeoutMs}ms`);
+    else warnBrain(model, "network", err instanceof Error ? err.name : "fetch failed");
     return null;
   } finally {
     clearTimeout(timer);
@@ -202,9 +253,17 @@ function withoutTrailingPeriod(reason: string): string {
 
 export async function runDualBrainCheck(ctx: BrainContext): Promise<BrainVerdict> {
   const unavailable: BrainVerdict = { verdict: REVIEW, reason: UNAVAILABLE_REASON };
+  // Diagnostics only: one summary line per run.
+  const done = (result: BrainVerdict, outcome: string): BrainVerdict => {
+    console.info(`[brain] run ${ctx.symbol} ${outcome} -> ${result.verdict}`);
+    return result;
+  };
   try {
-    const apiKey = await getApiKey();
-    if (!apiKey) return unavailable;
+    const apiKey = await getOpenRouterKey();
+    if (!apiKey) {
+      warnBrain("openrouter", "not_configured", "no OpenRouter key in cookie or env");
+      return done(unavailable, "no_key");
+    }
 
     const cfg = config();
     const prompt = buildUserPrompt(ctx);
@@ -221,12 +280,15 @@ export async function runDualBrainCheck(ctx: BrainContext): Promise<BrainVerdict
     // Both brains answered.
     if (primary && secondary) {
       if (primary.verdict === secondary.verdict) {
-        return {
-          verdict: primary.verdict,
-          reason: `${withoutTrailingPeriod(primary.reason)} (verified by two models: ${primary.model} + ${secondary.model})`,
-        };
+        return done(
+          {
+            verdict: primary.verdict,
+            reason: `${withoutTrailingPeriod(primary.reason)} (verified by two models: ${primary.model} + ${secondary.model})`,
+          },
+          "agree",
+        );
       }
-      return { verdict: REVIEW, reason: DISAGREE_REASON };
+      return done({ verdict: REVIEW, reason: DISAGREE_REASON }, "disagree");
     }
 
     // Exactly one brain answered - the last-resort model substitutes for the other.
@@ -237,30 +299,39 @@ export async function runDualBrainCheck(ctx: BrainContext): Promise<BrainVerdict
         cfg.lastResort !== single.model ? await call(cfg.lastResort) : null;
       if (substitute) {
         if (substitute.verdict === single.verdict) {
-          return {
-            verdict: single.verdict,
-            reason: `${withoutTrailingPeriod(single.reason)} (verified by two models: ${single.model} + ${substitute.model})`,
-          };
+          return done(
+            {
+              verdict: single.verdict,
+              reason: `${withoutTrailingPeriod(single.reason)} (verified by two models: ${single.model} + ${substitute.model})`,
+            },
+            "substitute_agree",
+          );
         }
-        return { verdict: REVIEW, reason: DISAGREE_REASON };
+        return done({ verdict: REVIEW, reason: DISAGREE_REASON }, "substitute_disagree");
       }
-      return {
-        verdict: single.verdict,
-        reason: `${withoutTrailingPeriod(single.reason)} (single model: ${single.model}; ${failedModel} unavailable)`,
-      };
+      return done(
+        {
+          verdict: single.verdict,
+          reason: `${withoutTrailingPeriod(single.reason)} (single model: ${single.model}; ${failedModel} unavailable)`,
+        },
+        "single",
+      );
     }
 
     // Neither brain answered - last-resort model alone.
     const fallback = await call(cfg.lastResort);
     if (fallback) {
-      return {
-        verdict: fallback.verdict,
-        reason: `${withoutTrailingPeriod(fallback.reason)} (single fallback model)`,
-      };
+      return done(
+        {
+          verdict: fallback.verdict,
+          reason: `${withoutTrailingPeriod(fallback.reason)} (single fallback model)`,
+        },
+        "fallback",
+      );
     }
 
-    return unavailable;
+    return done(unavailable, "unavailable");
   } catch {
-    return unavailable;
+    return done(unavailable, "error");
   }
 }

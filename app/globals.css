@@ -78,3 +78,49 @@ body:has([data-surface="marketing"]) {
     border-radius: 2px;
   }
 }
+
+/* Terminal surface (app routes). Focus ring reuses alert cyan. */
+[data-surface="terminal"] :focus-visible {
+  outline: 1px solid #3ddbd9;
+  outline-offset: 1px;
+}
+[data-surface="terminal"] .num {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* 400ms tint on rows that just arrived; the tint is skipped under reduced motion. */
+@keyframes row-flash-bid {
+  from { background-color: rgb(47 191 113 / 0.12); }
+  to { background-color: transparent; }
+}
+@keyframes row-flash-ask {
+  from { background-color: rgb(229 72 77 / 0.12); }
+  to { background-color: transparent; }
+}
+@keyframes row-flash-alert {
+  from { background-color: rgb(61 219 217 / 0.14); }
+  to { background-color: transparent; }
+}
+.flash-bid { animation: row-flash-bid 400ms var(--ease-out); }
+.flash-ask { animation: row-flash-ask 400ms var(--ease-out); }
+.flash-alert { animation: row-flash-alert 400ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  .flash-bid, .flash-ask, .flash-alert { animation: none; }
+}
+
+/* Print: case reports print as black on white without the shell. */
+@media print {
+  [data-print-hide] { display: none !important; }
+  body, [data-surface="terminal"] {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  [data-print-surface] * {
+    background: transparent !important;
+    color: #000 !important;
+    border-color: #999 !important;
+    outline-color: #000 !important;
+  }
+  [data-print-surface] a { text-decoration: underline; }
+}

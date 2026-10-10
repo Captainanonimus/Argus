@@ -31,7 +31,11 @@ model Alert {
   metricValue  Float
   reason       String
   createdAt    DateTime   @default(now())
+  status       String     @default("open")
+  note         String     @default("")
+  updatedAt    DateTime   @default(now()) @updatedAt
 
   @@index([orderEventId])
   @@index([createdAt])
+  @@index([status])
 }

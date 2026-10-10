@@ -148,9 +148,9 @@ function Hero({ reduce }: { reduce: boolean }) {
           <Link href="/dashboard" className="btn-primary">
             Open the live terminal
           </Link>
-          <a href="#verdict" className="link-secondary">
+          <Link href="/rules" className="link-secondary">
             See how a verdict is reached
-          </a>
+          </Link>
         </div>
       </div>
 
