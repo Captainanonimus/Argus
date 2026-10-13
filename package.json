@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "record": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/record-feed.ts",
+    "replay": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/replay.ts",
+    "backtest": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/backtest.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "2.1.7",

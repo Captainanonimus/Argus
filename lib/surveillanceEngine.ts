@@ -1,6 +1,7 @@
 import type { OrderEvent } from "@prisma/client";
 import { prisma } from "./prisma";
 import { runDualBrainCheck } from "./aiBrains";
+import { now } from "./clock";
 import {
   ALERT_TYPES,
   EVENT_TYPES,
@@ -228,7 +229,7 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
           zScore: z,
           recentEvents: window.slice(-RECENT_EVENTS_FOR_BRAINS),
         }));
-      if (!reused) brainCache.set(event.symbol, { at: Date.now(), result: brains });
+      if (!reused) brainCache.set(event.symbol, { at: now(), result: brains });
 
       if (brains.verdict === CLEAR) {
         clearReason = brains.reason;
@@ -271,14 +272,14 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
 async function recentBrainOutcome(symbol: string): Promise<BrainOutcome | null> {
   const cached = brainCache.get(symbol);
   if (cached) {
-    if (Date.now() - cached.at < BRAIN_THROTTLE_MS) return cached.result;
+    if (now() - cached.at < BRAIN_THROTTLE_MS) return cached.result;
     brainCache.delete(symbol);
   }
 
   const alert = await prisma.alert.findFirst({
     where: {
       alertType: BOOK_IMBALANCE,
-      createdAt: { gte: new Date(Date.now() - BRAIN_THROTTLE_MS) },
+      createdAt: { gte: new Date(now() - BRAIN_THROTTLE_MS) },
       orderEvent: { symbol },
     },
     orderBy: { createdAt: "desc" },
@@ -292,7 +293,7 @@ async function recentBrainOutcome(symbol: string): Promise<BrainOutcome | null> 
 // Saves alerts, skipping reused ones and any whose alertType already has an
 // alert for the same symbol in the last 30s. The caller still reports them.
 async function saveAlerts(event: OrderEvent, alerts: PendingAlert[]) {
-  const since = new Date(Date.now() - ALERT_DEDUPE_MS);
+  const since = new Date(now() - ALERT_DEDUPE_MS);
   const fresh: PendingAlert[] = [];
   for (const a of alerts) {
     if (a.reused) continue;
@@ -314,6 +315,7 @@ async function saveAlerts(event: OrderEvent, alerts: PendingAlert[]) {
       verdict,
       metricValue,
       reason,
+      createdAt: new Date(now()),
     })),
   });
 }
