@@ -8,6 +8,7 @@
 // deleted at the end unless --keep is given.
 
 import { prisma } from "../lib/prisma";
+import { requireWritableDb } from "./db-guard";
 import {
   cliArg,
   cliFlag,
@@ -19,6 +20,7 @@ import {
 } from "../lib/replay";
 
 async function main() {
+  requireWritableDb("replay");
   const symbols = (cliArg("symbols") ?? "BTCUSDT,ETHUSDT").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   const speed = parseSpeed(cliArg("speed"), 1);
   if (cliFlag("no-ai")) delete process.env.OPENROUTER_API_KEY;

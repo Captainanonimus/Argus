@@ -16,6 +16,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import { dbHost, requireWritableDb } from "./db-guard";
 
 type NewEvent = Prisma.OrderEventCreateManyInput;
 
@@ -29,6 +30,7 @@ const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
 const STABLE_MS = 30_000;
 const STATS_INTERVAL_MS = 30_000;
+const MAX_WRITE_FAILURES = 5;
 
 // Size of one integer lot per symbol, in base-asset units. The engine's
 // large-order line is 500 lots (0.5 BTC / 5 ETH with these defaults).
@@ -75,6 +77,19 @@ const buffer: NewEvent[] = [];
 let written = 0;
 let dropped = 0;
 let writing: Promise<void> = Promise.resolve();
+let writeFailures = 0;
+
+// Prisma errors often start with a newline, so print every field rather than
+// just the first line of the message.
+function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const e = err as Error & { code?: unknown; meta?: unknown; clientVersion?: unknown };
+  const lines = [`${e.name}: ${e.message.trim()}`];
+  if (e.code !== undefined) lines.push(`code: ${String(e.code)}`);
+  if (e.meta !== undefined) lines.push(`meta: ${JSON.stringify(e.meta)}`);
+  if (e.clientVersion !== undefined) lines.push(`clientVersion: ${String(e.clientVersion)}`);
+  return lines.join("\n");
+}
 
 function push(e: NewEvent) {
   buffer.push(e);
@@ -95,9 +110,18 @@ function flush(all = false): Promise<void> {
       try {
         await prisma.orderEvent.createMany({ data: batch });
         written += batch.length;
+        writeFailures = 0;
       } catch (err) {
         buffer.unshift(...batch);
-        console.error(`[record] write failed, will retry: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
+        writeFailures++;
+        console.error(
+          `[record] write failed (${writeFailures}/${MAX_WRITE_FAILURES}):\n${describeError(err)}\n` +
+            `sample event: ${JSON.stringify(batch[0])}`,
+        );
+        if (writeFailures >= MAX_WRITE_FAILURES && !stopping) {
+          console.error(`[record] ${MAX_WRITE_FAILURES} consecutive write failures, giving up`);
+          void shutdown(1);
+        }
         return;
       }
     }
@@ -333,8 +357,30 @@ process.on("SIGINT", () => void shutdown(0));
 process.on("SIGTERM", () => void shutdown(0));
 if (MINUTES > 0) setTimeout(() => void shutdown(0), MINUTES * 60_000);
 
-if (SYMBOLS.length === 0) {
-  console.error("[record] no symbols given");
-  process.exit(1);
+// Fail fast on a bad DATABASE_URL or schema before opening the feed.
+async function checkDatabase() {
+  console.log(`[record] database host: ${dbHost()}`);
+  const probe = await prisma.orderEvent.create({
+    data: { symbol: "PROBE", accountId: "BN-PROBE", side: "BUY", price: 0, size: 1, eventType: "place" },
+  });
+  await prisma.orderEvent.delete({ where: { id: probe.id } });
+  console.log("[record] database write check ok");
 }
-connect();
+
+async function main() {
+  if (SYMBOLS.length === 0) {
+    console.error("[record] no symbols given");
+    process.exit(1);
+  }
+  requireWritableDb("record");
+  try {
+    await checkDatabase();
+  } catch (err) {
+    console.error(`[record] database write check failed:\n${describeError(err)}`);
+    await shutdown(1);
+    return;
+  }
+  connect();
+}
+
+void main();

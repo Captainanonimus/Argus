@@ -10,6 +10,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../lib/prisma";
+import { requireWritableDb } from "./db-guard";
 import { runBacktest } from "../lib/backtest";
 import { cliArg, cliFlag, deleteReplayRun, parseSpeed, parseTime, recordedRange } from "../lib/replay";
 
@@ -27,6 +28,7 @@ const pct = (v: number | null) => (v === null ? "n/a" : `${(v * 100).toFixed(1)}
 const secs = (ms: number | undefined) => (ms === undefined ? "n/a" : `${(ms / 1000).toFixed(1)}s`);
 
 async function main() {
+  requireWritableDb("backtest");
   const symbols = (cliArg("symbols") ?? "BTCUSDT,ETHUSDT").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   const ai = !cliFlag("no-ai");
   if (!ai) delete process.env.OPENROUTER_API_KEY;
