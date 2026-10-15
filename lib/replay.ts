@@ -1,6 +1,12 @@
 import type { OrderEvent, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { evaluateEvent, type EvaluationResult } from "./surveillanceEngine";
+import {
+  evaluateEvent,
+  IMBALANCE_LOOKBACK_MS,
+  MAX_WINDOW_ROWS,
+  type EvaluationContext,
+  type EvaluationResult,
+} from "./surveillanceEngine";
 import { resetClock, setClock } from "./clock";
 
 // Replays recorded OrderEvent rows through the real surveillance engine.
@@ -11,10 +17,15 @@ import { resetClock, setClock } from "./clock";
 // never modified. While the run is active the engine reads a simulated clock
 // set to the time of the event being evaluated; --speed only paces the
 // wall-clock delay between events and never changes the results.
+//
+// Because the run is the only writer for its prefixed symbols, it keeps the
+// rows it inserted and the alerts it saved in memory and hands them to the
+// engine, which then skips its per-event DB reads. The rows are the same
+// ones the engine would read back, so the results do not change.
 
 export const REPLAY_PREFIX = "RPL-";
 const READ_PAGE = 2_000;
-const INSERT_BATCH = 200;
+const INSERT_BATCH = 2_000;
 const PROGRESS_MS = 5_000;
 const ENGINE_ERROR_REASON = "engine error - routed to manual review";
 
@@ -133,7 +144,32 @@ export async function runReplay(opts: ReplayOptions): Promise<ReplayStats> {
   let simStart: number | null = null;
   let lastProgress = wallStart;
 
-  const processBatch = async (batch: ReplayEvent[]) => {
+  // Inserted rows per replay symbol, time-ordered; rows before `head` are
+  // older than any remaining event's lookback.
+  const buffers = new Map<string, { rows: OrderEvent[]; head: number }>();
+  const lastAlerts: EvaluationContext["lastAlerts"] = new Map();
+  const lookbackFor = (event: OrderEvent): OrderEvent[] => {
+    const buf = buffers.get(event.symbol)!;
+    const t = event.createdAt.getTime();
+    const start = t - IMBALANCE_LOOKBACK_MS;
+    while (buf.head < buf.rows.length && buf.rows[buf.head].createdAt.getTime() < start) buf.head++;
+    if (buf.head > 50_000) {
+      buf.rows = buf.rows.slice(buf.head);
+      buf.head = 0;
+    }
+    // Rows up to and including t (same-time rows later in the batch are
+    // already inserted, so the DB read would see them too).
+    let lo = buf.head;
+    let hi = buf.rows.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (buf.rows[mid].createdAt.getTime() <= t) lo = mid + 1;
+      else hi = mid;
+    }
+    return buf.rows.slice(Math.max(buf.head, lo - MAX_WINDOW_ROWS), lo);
+  };
+
+  const insertBatch = async (batch: ReplayEvent[]) => {
     const data: Prisma.OrderEventCreateManyInput[] = batch.map((e) => ({
       symbol: replaySymbol(prefix, e.symbol),
       accountId: e.accountId,
@@ -146,6 +182,15 @@ export async function runReplay(opts: ReplayOptions): Promise<ReplayStats> {
     // Postgres returns rows in VALUES order; sort defensively by time.
     const created = await prisma.orderEvent.createManyAndReturn({ data });
     created.sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime());
+    return created;
+  };
+
+  const evaluateBatch = async (created: OrderEvent[]) => {
+    for (const row of created) {
+      let buf = buffers.get(row.symbol);
+      if (!buf) buffers.set(row.symbol, (buf = { rows: [], head: 0 }));
+      buf.rows.push(row);
+    }
 
     for (const event of created) {
       const t = event.createdAt.getTime();
@@ -157,7 +202,7 @@ export async function runReplay(opts: ReplayOptions): Promise<ReplayStats> {
         else stats.maxLagMs = Math.max(stats.maxLagMs, -wait);
       }
       simNow = t;
-      const result = await evaluateEvent(event);
+      const result = await evaluateEvent(event, { lookback: lookbackFor(event), lastAlerts });
       stats.evaluated++;
       stats.verdicts[result.verdict] = (stats.verdicts[result.verdict] ?? 0) + 1;
       if (result.reason === ENGINE_ERROR_REASON) stats.engineErrors++;
@@ -172,15 +217,28 @@ export async function runReplay(opts: ReplayOptions): Promise<ReplayStats> {
   };
 
   try {
+    // Reading and inserting the next batch overlaps evaluation of the
+    // previous one. A batch's rows reach the engine's buffer only once it
+    // is evaluated, so each event still sees exactly the rows inserted
+    // before its own batch plus its batch.
+    let evaluating: Promise<void> = Promise.resolve();
+    const flush = async (batch: ReplayEvent[]) => {
+      const created = await insertBatch(batch);
+      await evaluating;
+      evaluating = evaluateBatch(created);
+      // Surface a failure on the next await rather than as unhandled.
+      evaluating.catch(() => {});
+    };
     let batch: ReplayEvent[] = [];
     for await (const e of mergeByTime(readRecorded(opts.symbols, opts.from, opts.to), extra)) {
       batch.push(e);
       if (batch.length >= INSERT_BATCH) {
-        await processBatch(batch);
+        await flush(batch);
         batch = [];
       }
     }
-    if (batch.length) await processBatch(batch);
+    if (batch.length) await flush(batch);
+    await evaluating;
   } finally {
     resetClock();
   }
