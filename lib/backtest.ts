@@ -318,7 +318,8 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
   }));
 
   // Match alerts to episodes.
-  const episodes: Episode[] = planned.map(({ injected: _injected, ...e }) => {
+  const episodes: Episode[] = planned.map(({ id, symbol, rule, start: startIso, end, events, detail }) => {
+    const e = { id, symbol, rule, start: startIso, end, events, detail };
     const start = Date.parse(e.start);
     const windowEnd = Date.parse(e.end) + MATCH_WINDOW_MS;
     const hits = alerts.filter((a) => a.symbol === e.symbol && a.rule === e.rule && a.at >= start && a.at <= windowEnd);
