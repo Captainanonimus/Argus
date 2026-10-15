@@ -28,6 +28,9 @@ Next.js 14 (App Router), TypeScript, Tailwind CSS, Prisma, PostgreSQL (Neon), de
 | `AI_PRIMARY_MODEL`, `AI_SECONDARY_MODEL`, `AI_LAST_RESORT_MODEL` | Model ids for the dual-brain check |
 | `AI_TIMEOUT_MS` | Per-model timeout in milliseconds |
 | `TINYFISH_API_KEY` | Optional default key (users can paste their own in Settings) |
+| `ALLOW_DB_WRITES_HOST` | Required by `npm run record`, `replay` and `backtest`: must be a substring of the `DATABASE_URL` host, otherwise the script prints the host and exits with code 1 |
+
+`record`, `replay` and `backtest` write to the database, so they refuse to run against a host you have not explicitly allowed. For example, with `DATABASE_URL=postgres://user:pw@ep-quiet-lake-123456.us-east-2.aws.neon.tech/argus`, set `ALLOW_DB_WRITES_HOST=ep-quiet-lake-123456`.
 
 ## Run locally
 

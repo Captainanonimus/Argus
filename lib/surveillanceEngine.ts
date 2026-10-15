@@ -1,6 +1,7 @@
 import type { OrderEvent } from "@prisma/client";
 import { prisma } from "./prisma";
 import { runDualBrainCheck } from "./aiBrains";
+import { now } from "./clock";
 import {
   ALERT_TYPES,
   EVENT_TYPES,
@@ -156,33 +157,46 @@ function imbalanceZScore(rows: OrderEvent[], anchor: number): number | null {
 // --- Entry point -----------------------------------------------------------
 
 // Caps each window read so a very busy symbol cannot load unbounded rows.
-const MAX_WINDOW_ROWS = 20_000;
+export const MAX_WINDOW_ROWS = 20_000;
+export { IMBALANCE_LOOKBACK_MS };
 
-export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult> {
+export type SavedAlert = { at: number; verdict: string; reason: string };
+
+// In-memory state supplied by a caller that is the only writer for the
+// event's symbol (a replay run), so the engine can skip its DB reads.
+export type EvaluationContext = {
+  // Rows for event.symbol with createdAt in [anchor - 5m, anchor], oldest
+  // first, at most MAX_WINDOW_ROWS (newest kept) - what the DB read returns.
+  lookback: OrderEvent[];
+  // Latest saved alert per alertKey(symbol, alertType). Updated on save.
+  lastAlerts: Map<string, SavedAlert>;
+};
+
+export const alertKey = (symbol: string, alertType: string) => `${symbol}|${alertType}`;
+
+async function readLookback(event: OrderEvent, anchor: number) {
+  const rows = await prisma.orderEvent.findMany({
+    where: {
+      symbol: event.symbol,
+      createdAt: { gte: new Date(anchor - IMBALANCE_LOOKBACK_MS), lte: new Date(anchor) },
+    },
+    orderBy: { createdAt: "desc" },
+    take: MAX_WINDOW_ROWS,
+  });
+  // Newest rows are kept when a window is capped; rules read oldest first.
+  return rows.reverse();
+}
+
+export async function evaluateEvent(event: OrderEvent, ctx?: EvaluationContext): Promise<EvaluationResult> {
   try {
     const anchor = event.createdAt.getTime();
-    const until = new Date(anchor);
-    const [window, lookback] = await Promise.all([
-      prisma.orderEvent.findMany({
-        where: {
-          symbol: event.symbol,
-          createdAt: { gte: new Date(anchor - WINDOW_MS), lte: until },
-        },
-        orderBy: { createdAt: "desc" },
-        take: MAX_WINDOW_ROWS,
-      }),
-      prisma.orderEvent.findMany({
-        where: {
-          symbol: event.symbol,
-          createdAt: { gte: new Date(anchor - IMBALANCE_LOOKBACK_MS), lte: until },
-        },
-        orderBy: { createdAt: "desc" },
-        take: MAX_WINDOW_ROWS,
-      }),
-    ]);
-    // Newest rows are kept when a window is capped; rules read oldest first.
-    window.reverse();
-    lookback.reverse();
+    const lookback = ctx?.lookback ?? (await readLookback(event, anchor));
+    // The 60s window is the tail of the 5-minute lookback. Both reads keep
+    // the newest rows under the same cap, so this equals a separate read.
+    const windowStart = anchor - WINDOW_MS;
+    let w = lookback.length;
+    while (w > 0 && lookback[w - 1].createdAt.getTime() >= windowStart) w--;
+    const window = lookback.slice(w);
 
     const alerts: PendingAlert[] = [];
     let clearReason = "No surveillance rule fired.";
@@ -218,7 +232,7 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
     } else if (z !== null && z >= Z_AMBIGUOUS && alerts.length === 0) {
       // Ambiguous imbalance and nothing else fired - ask the dual-brain check,
       // at most once per symbol per 60s.
-      const reused = await recentBrainOutcome(event.symbol);
+      const reused = await recentBrainOutcome(event.symbol, ctx);
       const brains =
         reused ??
         (await runDualBrainCheck({
@@ -228,7 +242,7 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
           zScore: z,
           recentEvents: window.slice(-RECENT_EVENTS_FOR_BRAINS),
         }));
-      if (!reused) brainCache.set(event.symbol, { at: Date.now(), result: brains });
+      if (!reused) brainCache.set(event.symbol, { at: now(), result: brains });
 
       if (brains.verdict === CLEAR) {
         clearReason = brains.reason;
@@ -243,7 +257,7 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
       }
     }
 
-    await saveAlerts(event, alerts);
+    await saveAlerts(event, alerts, ctx);
 
     const metrics = { orderToTradeRatio: otr.ratio, zScore: z };
     if (alerts.length === 0) {
@@ -268,22 +282,29 @@ export async function evaluateEvent(event: OrderEvent): Promise<EvaluationResult
 
 // Returns a dual-brain outcome for this symbol from the last 60s, if any:
 // first the in-memory cache, then any book_imbalance alert in the DB.
-async function recentBrainOutcome(symbol: string): Promise<BrainOutcome | null> {
+async function recentBrainOutcome(symbol: string, ctx?: EvaluationContext): Promise<BrainOutcome | null> {
   const cached = brainCache.get(symbol);
   if (cached) {
-    if (Date.now() - cached.at < BRAIN_THROTTLE_MS) return cached.result;
+    if (now() - cached.at < BRAIN_THROTTLE_MS) return cached.result;
     brainCache.delete(symbol);
   }
 
-  const alert = await prisma.alert.findFirst({
-    where: {
-      alertType: BOOK_IMBALANCE,
-      createdAt: { gte: new Date(Date.now() - BRAIN_THROTTLE_MS) },
-      orderEvent: { symbol },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { verdict: true, reason: true },
-  });
+  const since = now() - BRAIN_THROTTLE_MS;
+  let alert: { verdict: string; reason: string } | null;
+  if (ctx) {
+    const saved = ctx.lastAlerts.get(alertKey(symbol, BOOK_IMBALANCE));
+    alert = saved && saved.at >= since ? saved : null;
+  } else {
+    alert = await prisma.alert.findFirst({
+      where: {
+        alertType: BOOK_IMBALANCE,
+        createdAt: { gte: new Date(since) },
+        orderEvent: { symbol },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { verdict: true, reason: true },
+    });
+  }
   if (!alert) return null;
   const verdict = VERDICTS.find((v) => v === alert.verdict) ?? REVIEW;
   return { verdict, reason: alert.reason };
@@ -291,22 +312,25 @@ async function recentBrainOutcome(symbol: string): Promise<BrainOutcome | null> 
 
 // Saves alerts, skipping reused ones and any whose alertType already has an
 // alert for the same symbol in the last 30s. The caller still reports them.
-async function saveAlerts(event: OrderEvent, alerts: PendingAlert[]) {
-  const since = new Date(Date.now() - ALERT_DEDUPE_MS);
+async function saveAlerts(event: OrderEvent, alerts: PendingAlert[], ctx?: EvaluationContext) {
+  const since = new Date(now() - ALERT_DEDUPE_MS);
   const fresh: PendingAlert[] = [];
   for (const a of alerts) {
     if (a.reused) continue;
-    const existing = await prisma.alert.findFirst({
-      where: {
-        alertType: a.alertType,
-        createdAt: { gte: since },
-        orderEvent: { symbol: event.symbol },
-      },
-      select: { id: true },
-    });
+    const existing = ctx
+      ? (ctx.lastAlerts.get(alertKey(event.symbol, a.alertType))?.at ?? -Infinity) >= since.getTime()
+      : await prisma.alert.findFirst({
+          where: {
+            alertType: a.alertType,
+            createdAt: { gte: since },
+            orderEvent: { symbol: event.symbol },
+          },
+          select: { id: true },
+        });
     if (!existing) fresh.push(a);
   }
   if (fresh.length === 0) return;
+  const at = now();
   await prisma.alert.createMany({
     data: fresh.map(({ alertType, verdict, metricValue, reason }) => ({
       orderEventId: event.id,
@@ -314,6 +338,8 @@ async function saveAlerts(event: OrderEvent, alerts: PendingAlert[]) {
       verdict,
       metricValue,
       reason,
+      createdAt: new Date(at),
     })),
   });
+  for (const { alertType, verdict, reason } of fresh) ctx?.lastAlerts.set(alertKey(event.symbol, alertType), { at, verdict, reason });
 }
