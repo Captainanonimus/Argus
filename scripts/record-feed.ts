@@ -22,7 +22,7 @@ type NewEvent = Prisma.OrderEventCreateManyInput;
 
 const STREAM_BASE = "wss://stream.binance.com:9443/stream?streams=";
 const REST_DEPTH = "https://api.binance.com/api/v3/depth";
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 2_000;
 const FLUSH_INTERVAL_MS = 2_000;
 const MAX_BUFFER = 50_000;
 const STALE_MS = 30_000;
@@ -101,7 +101,7 @@ function push(e: NewEvent) {
   if (buffer.length >= BATCH_SIZE) void flush();
 }
 
-// Writes full batches of 200 (and the remainder when `all` is set). Writes
+// Writes full batches of 2,000 (and the remainder when `all` is set). Writes
 // are serialized; a failed batch goes back to the front of the buffer.
 function flush(all = false): Promise<void> {
   writing = writing.then(async () => {
